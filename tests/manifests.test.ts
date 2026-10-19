@@ -85,6 +85,16 @@ describe.each(combos)('manifeste %s (%s)', (targetName, mode) => {
     expect(m.permissions).not.toContain('offscreen');
   });
 
+  test('interface : page d\'options, icônes existantes, clic sur l\'icône sans popup, rien d\'exposé aux pages web', () => {
+    expect(m.options_ui).toEqual({ page: 'options.html', open_in_tab: true });
+    expect(m.action.default_popup).toBeUndefined();
+    for (const path of [...Object.values(m.icons), ...Object.values(m.action.default_icon)] as string[]) {
+      expect(() => readFileSync(new URL(`../assets/${path}`, import.meta.url))).not.toThrow();
+    }
+    // La fenêtre d'invite n'est jamais intégrable par une page web : elle n'est pas « web accessible ».
+    expect(m.web_accessible_resources).toBeUndefined();
+  });
+
   test('mode de fond propre au navigateur', () => {
     if (targetName === 'chrome') {
       expect(m.background).toEqual({ service_worker: 'background.js' });

@@ -2,9 +2,10 @@
 // Construit dist/chrome et dist/firefox. Usage : node scripts/build.mjs --prod | --dev
 // À lancer sous Node (pas sous Bun). Sortie déterministe : pas d'horodatage, versions épinglées.
 import { build } from 'esbuild';
-import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ENTRIES, STATIC } from './lib/entries.mjs';
 import { assertNoLocalOrigins, buildManifest, originsFor } from './lib/manifest.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -16,12 +17,6 @@ if (!mode || flags.includes('--prod') === flags.includes('--dev')) {
   console.error('Usage : node scripts/build.mjs --prod | --dev');
   process.exit(2);
 }
-
-/** Points d'entrée (chemin source → fichier de sortie). Les pages d'interface s'y ajoutent en P3. */
-const ENTRIES = {
-  background: 'src/background/index.ts',
-  content: 'src/bridge/content.ts',
-};
 
 const pkg = readJson('package.json');
 const origins = originsFor(readJson('config/origins.json'), mode);
@@ -48,6 +43,11 @@ for (const targetName of ['chrome', 'firefox']) {
     origins,
   });
   writeFileSync(join(outdir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+
+  for (const [name, src] of Object.entries(STATIC)) {
+    mkdirSync(dirname(join(outdir, name)), { recursive: true });
+    copyFileSync(join(root, src), join(outdir, name));
+  }
 
   await build({
     entryPoints: Object.fromEntries(Object.entries(ENTRIES).map(([out, src]) => [out, join(root, src)])),
