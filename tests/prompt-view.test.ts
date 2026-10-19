@@ -1,0 +1,120 @@
+import { describe, expect, test } from 'bun:test';
+import type { PromptView } from '../src/ui/prompt/controller';
+import { createPromptView } from '../src/ui/prompt/view';
+import { asEl, buttonByText, fakeDoc, type FakeElement } from './helpers/fakeDom';
+
+const base: PromptView = {
+  phase: 'enter', mode: 'load', origin: 'https://app.synco.one', reason: null, replacing: false,
+  title: 'Déverrouiller la clé de cet appareil', hint: 'Saisissez le code.', error: null, dots: 0,
+  keypadEnabled: true, canSubmit: false, submitLabel: 'Déverrouiller', remainingSeconds: 90, lockSeconds: null,
+};
+
+function make() {
+  const calls: string[] = [];
+  const v = createPromptView(fakeDoc(), {
+    press: (d) => calls.push(`press:${d}`), backspace: () => calls.push('backspace'), clear: () => calls.push('clear'),
+    submit: () => calls.push('submit'), cancel: () => calls.push('cancel'), close: () => calls.push('close'),
+  });
+  const root = asEl(v.root);
+  return { v, root, calls };
+}
+const all = (root: FakeElement) => root.textContent;
+
+describe('fenêtre de saisie : affichage', () => {
+  test('origine et raison s\'affichent en texte brut, même hostiles', () => {
+    const { v, root } = make();
+    const hostile = '<img src=x onerror=alert(1)>';
+    v.update({ ...base, origin: 'https://app.synco.one', reason: hostile });
+    expect(all(root)).toContain('https://app.synco.one');
+    expect(all(root)).toContain(`« ${hostile} »`);
+    expect(root.findAll((e) => ['img', 'script', 'iframe'].includes(e.tagName))).toEqual([]);
+  });
+
+  test('l\'origine demandeuse est visible et libellée', () => {
+    const { v, root } = make();
+    v.update(base);
+    const req = root.findAll((e) => e.getAttribute('class') === 'requester')[0]!;
+    expect(req.hidden).toBe(false);
+    expect(req.textContent).toContain('Demandé par');
+    expect(req.textContent).toContain('https://app.synco.one');
+  });
+
+  test('pavé numérique : 0 à 9, effacer, retour arrière, avec libellés accessibles', () => {
+    const { v, root, calls } = make();
+    v.update(base);
+    for (const d of '0123456789') buttonByText(root, d).click();
+    buttonByText(root, 'Effacer').click();
+    buttonByText(root, '⌫').click();
+    expect(calls).toEqual([...'0123456789'].map((d) => `press:${d}`).concat(['clear', 'backspace']));
+    const keypad = root.findAll((e) => e.getAttribute('class') === 'keypad')[0]!;
+    expect(keypad.findAll((e) => e.tagName === 'button').every((b) => !!b.getAttribute('aria-label'))).toBe(true);
+  });
+
+  test('points : un par chiffre, aucun chiffre affiché', () => {
+    const { v, root } = make();
+    v.update({ ...base, dots: 5 });
+    expect(root.findAll((e) => e.getAttribute('class') === 'dot')).toHaveLength(5);
+    v.update({ ...base, dots: 0 });
+    expect(root.findAll((e) => e.getAttribute('class') === 'dot')).toHaveLength(0);
+    expect(all(root)).toContain('Aucun chiffre saisi');
+  });
+
+  test('boutons : annuler, valider (activé selon l\'état), pavé désactivé pendant le verrouillage', () => {
+    const { v, root, calls } = make();
+    v.update({ ...base, dots: 4, canSubmit: true });
+    buttonByText(root, 'Déverrouiller').click();
+    buttonByText(root, 'Annuler').click();
+    expect(calls).toEqual(['submit', 'cancel']);
+    expect(buttonByText(root, 'Déverrouiller').disabled).toBe(false);
+
+    v.update({ ...base, keypadEnabled: false, canSubmit: false, lockSeconds: 30, remainingSeconds: null });
+    expect(buttonByText(root, '5').disabled).toBe(true);
+    expect(buttonByText(root, 'Déverrouiller').disabled).toBe(true);
+    expect(all(root)).toContain('Prochain essai possible dans 30 s');
+  });
+
+  test('vérification en cours : état annoncé, pavé inactif', () => {
+    const { v, root } = make();
+    v.update({ ...base, phase: 'verifying', keypadEnabled: false, hint: 'Vérification en cours…' });
+    expect(root.getAttribute('aria-busy')).toBe('true');
+    expect(all(root)).toContain('Vérification…');
+    expect(buttonByText(root, '1').disabled).toBe(true);
+  });
+
+  test('erreur annoncée aux lecteurs d\'écran (role=alert)', () => {
+    const { v, root } = make();
+    v.update({ ...base, error: 'Code PIN incorrect.' });
+    const err = root.findAll((e) => e.getAttribute('role') === 'alert')[0]!;
+    expect(err.hidden).toBe(false);
+    expect(err.textContent).toBe('Code PIN incorrect.');
+    v.update(base);
+    expect(err.hidden).toBe(true);
+  });
+
+  test('erreur terminale ou expirée : plus de formulaire, bouton Fermer', () => {
+    const { v, root, calls } = make();
+    v.update({ ...base, phase: 'fatal', keypadEnabled: false, error: 'Trop d\'erreurs.', remainingSeconds: null });
+    const form = root.findAll((e) => e.tagName === 'div' && e.children.some((c) => (c as FakeElement).getAttribute?.('class') === 'keypad'))[0]!;
+    expect(form.hidden).toBe(true);
+    buttonByText(root, 'Fermer').click();
+    expect(calls).toEqual(['close']);
+  });
+
+  test('remplacement : l\'avertissement n\'apparaît que pour une création sur un appareil déjà enregistré', () => {
+    const { v, root } = make();
+    const banner = () => root.findAll((e) => e.textContent.startsWith('Un enregistrement existe déjà'))[0]!;
+    v.update({ ...base, mode: 'create', replacing: true });
+    expect(banner().hidden).toBe(false);
+    v.update({ ...base, mode: 'load', replacing: true });
+    expect(banner().hidden).toBe(true);
+    v.update({ ...base, mode: 'create', replacing: false });
+    expect(banner().hidden).toBe(true);
+  });
+
+  test('les limites sont dites : vérifié par l\'extension, effacement après 10 erreurs', () => {
+    const { v, root } = make();
+    v.update(base);
+    expect(all(root)).toContain('Après 10 erreurs');
+    expect(all(root)).toContain('vérifié par l\'extension, pas par le site');
+  });
+});
