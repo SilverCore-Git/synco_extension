@@ -156,6 +156,20 @@ Firefox : un module temporaire est supprimé à la fermeture du navigateur ; R29
 | R54 | `node scripts/lint-firefox.mjs` | 0 erreur, 0 avertissement | ➖ | |
 | R55 | Reconstruire depuis l'archive source (voir `build-reproductible.md`) | Empreintes de chaque fichier identiques à `SHA256SUMS.txt` | | |
 
+## 9. Interface (charte Synco, onglets)
+
+| # | Étape | Résultat attendu | Chrome | Firefox |
+| --- | --- | --- | :-: | :-: |
+| R56 | Ouvrir le popup (thème sombre du système, puis clair) | Logo « Synco. » (point vert), icônes visibles (cadenas, clé, globe…), couleurs sobres comme l'application ; aucune icône carrée vide ni texte « ? » | | |
+| R57 | Popup : onglets « Coffre » et « Tâches » | Clic et flèches gauche/droite changent d'onglet ; l'onglet actif est souligné en vert | | |
+| R58 | Retirer l'accès au site (R06 inverse) | Pastille « ! » orange sur l'onglet Coffre ; bouton « Accorder l'accès » | | |
+| R59 | Créer un brouillon (R44–R46), rouvrir le popup | Le popup s'ouvre sur l'onglet « Tâches » avec la pastille « 1 » | | |
+| R60 | Roue dentée du popup | Ouvre la page d'options ; colonne latérale avec les mêmes onglets ; l'adresse change (`#vault`, `#tasks`) | | |
+| R61 | Page d'options réduite à moins de 720 px de large | Onglets en barre horizontale au-dessus du contenu, pas de défilement horizontal | | |
+| R62 | Fenêtre du PIN | Logo, carte « Demandé par » avec l'origine, points verts, pavé ; aucun bandeau vide ; erreur visible après un mauvais PIN | | |
+| R63 | Navigation au clavier (Tab) dans le popup, la page d'options et la fenêtre du PIN | Anneau de focus vert visible partout ; la suppression d'une clé ne prend jamais le focus par défaut (« Annuler » d'abord) | | |
+| R64 | Système réglé sur « réduire les animations » | Pas d'animation de chargement ni de transition | | |
+
 ## Ce que cette recette ne couvre pas
 
 - **Firefox pour Android** : non pris en charge (pas de fenêtres, pas de menu contextuel).

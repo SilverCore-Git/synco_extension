@@ -7,6 +7,13 @@ Extension Chrome et Firefox pour [Synco](https://synco.one). Elle a deux rôles,
 
 > **État : phase P6 (documentation).** Le coffre, le canal page ↔ extension, l'interface (fenêtre de saisie du PIN, popup, page d'options) et le squelette des actions de page (menu contextuel, [contrat de message](doc/page-actions.md)) sont en place. Rien n'est encore envoyé à Synco par les actions de page. Les paquets de publication (Chrome, Firefox, source pour l'AMO) se fabriquent avec `node scripts/package.mjs` ; la recette dans un vrai navigateur est dans [doc/recette-manuelle.md](doc/recette-manuelle.md). Spécification du coffre et modèle de menace : [doc/16-coffre-extension.md](doc/16-coffre-extension.md).
 
+## Interface
+
+Même charte que l'application Synco (jetons de couleur, boutons, pastilles, icônes Bootstrap Icons, logo), sombre par
+défaut et claire selon le système. Elle est **modulaire** : le coffre, les actions de page et, plus tard, Synco AI ou
+Tinko sont des modules indépendants qui s'affichent en onglets dans le popup et la page d'options. Principes, composants
+et marche à suivre pour ajouter un module : [doc/interface-modulaire.md](doc/interface-modulaire.md).
+
 ## Origines autorisées
 
 Elles sont définies dans [config/origins.json](config/origins.json) et injectées dans le manifeste au build :
@@ -42,6 +49,7 @@ node node_modules/typescript/bin/tsc --noEmit    # types
 node scripts/check-secrets.mjs --all             # secrets dans les fichiers du dépôt
 node scripts/check-deps-age.mjs                  # dépendances : versions exactes, publiées depuis ≥ 7 jours (réseau)
 node scripts/lint-firefox.mjs                    # addons-linter (moteur de web-ext lint) sur le paquet Firefox
+node scripts/make-ui-assets.mjs --check          # src/ui/icons.css (icônes, logo) à jour
 ```
 
 Le dépôt est public : `bun run setup` active le hook `pre-commit` qui exécute le contrôle de secrets sur chaque commit.
