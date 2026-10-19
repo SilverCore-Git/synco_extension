@@ -38,9 +38,22 @@ export function checkPackage(files, target, version) {
   if (target === 'firefox' && !m.browser_specific_settings?.gecko?.id) problems.push('identifiant Firefox (gecko.id) manquant');
   if (target === 'chrome' && !m.background?.service_worker) problems.push('Chrome : background.service_worker manquant');
   if (target === 'firefox' && !m.background?.scripts) problems.push('Firefox : background.scripts manquant');
-  if ((m.host_permissions ?? []).some((p) => /<all_urls>|\*:\/\/\*/.test(p))) problems.push('host_permissions trop large');
+  // Motif large : <all_urls>, schéma joker, ou hôte joker. Seul optional_host_permissions peut en contenir un.
+  const BROAD = /<all_urls>|\*:\/\/|:\/\/\*/;
+  for (const key of ['host_permissions', 'permissions']) {
+    if ((m[key] ?? []).some((p) => BROAD.test(p))) problems.push(`${key} trop large`);
+  }
+  for (const cs of m.content_scripts ?? []) {
+    if ((cs.matches ?? []).some((p) => BROAD.test(p))) problems.push('content_scripts.matches trop large');
+    if (cs.world && cs.world !== 'ISOLATED') problems.push('content script hors monde isolé');
+    if (cs.all_frames) problems.push('content script dans les cadres (all_frames)');
+  }
+  if (JSON.stringify({ ...m, optional_host_permissions: undefined }).match(BROAD)) problems.push('motif large hors optional_host_permissions');
+  if (m.optional_host_permissions && JSON.stringify(m.optional_host_permissions) !== '["<all_urls>"]') problems.push('optional_host_permissions inattendu');
   if (m.externally_connectable) problems.push('externally_connectable interdit');
+  if (m.web_accessible_resources) problems.push('web_accessible_resources interdit');
   if (m.content_security_policy?.extension_pages !== "script-src 'self'; object-src 'none'") problems.push('CSP des pages d\'extension modifiée');
+  if (m.content_security_policy && Object.keys(m.content_security_policy).some((k) => k !== 'extension_pages')) problems.push('CSP : clé inattendue');
 
   for (const f of files) {
     if (!/\.(json|js|html|css)$/.test(f.name)) continue;

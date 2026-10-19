@@ -89,6 +89,7 @@ describe('contrôle d\'un paquet avant publication', () => {
 
   test('un paquet de production correct ne soulève aucun problème', () => {
     expect(problems(goodFiles())).toEqual([]);
+    expect(problems(goodFiles(manifest({ optional_host_permissions: ['<all_urls>'], content_scripts: [{ matches: ['https://app.synco.one/*'], js: ['content.js'], all_frames: false }] })))).toEqual([]);
     expect(problems(goodFiles(), 'chrome')).toEqual([]);
   });
 
@@ -114,6 +115,16 @@ describe('contrôle d\'un paquet avant publication', () => {
     ['identifiant Firefox de développement', { browser_specific_settings: { gecko: { id: 'synco-extension-dev@synco.one' } } }, 'développement'],
     ['identifiant Firefox absent', { browser_specific_settings: {} }, 'gecko.id'],
     ['origine locale dans le manifeste', { host_permissions: ['https://localhost/*'] }, 'origine locale'],
+    ['schéma joker', { host_permissions: ['*://app.synco.one/*'] }, 'trop large'],
+    ['hôte joker', { host_permissions: ['https://*/*'] }, 'trop large'],
+    ['sous-domaines joker', { host_permissions: ['https://*.synco.one/*'] }, 'trop large'],
+    ['motif large dans permissions', { permissions: ['storage', '<all_urls>'] }, 'permissions trop large'],
+    ['content script sur tous les sites', { content_scripts: [{ matches: ['<all_urls>'], js: ['content.js'] }] }, 'content_scripts.matches trop large'],
+    ['content script en monde MAIN', { content_scripts: [{ matches: ['https://app.synco.one/*'], js: ['content.js'], world: 'MAIN' }] }, 'monde isolé'],
+    ['content script dans les cadres', { content_scripts: [{ matches: ['https://app.synco.one/*'], js: ['content.js'], all_frames: true }] }, 'all_frames'],
+    ['optional_host_permissions élargi', { optional_host_permissions: ['<all_urls>', 'file:///*'] }, 'optional_host_permissions inattendu'],
+    ['web_accessible_resources', { web_accessible_resources: [{ resources: ['prompt.html'], matches: ['https://app.synco.one/*'] }] }, 'web_accessible_resources'],
+    ['CSP sandbox ajoutée', { content_security_policy: { extension_pages: "script-src 'self'; object-src 'none'", sandbox: "script-src 'unsafe-eval'" } }, 'clé inattendue'],
   ])('refuse : %s', (_n, over, expected) => {
     expect(problems(goodFiles(manifest(over))).join('|')).toContain(expected);
   });
