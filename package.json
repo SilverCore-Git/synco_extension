@@ -12,6 +12,7 @@
   "scripts": {
     "setup": "git config core.hooksPath .githooks",
     "check:secrets": "node scripts/check-secrets.mjs --all",
+    "check:assets": "node scripts/make-ui-assets.mjs --check",
     "check:deps": "node scripts/check-deps-age.mjs",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "build": "node scripts/build.mjs --prod",
@@ -19,7 +20,7 @@
     "test": "bun test",
     "package": "node scripts/package.mjs",
     "lint:firefox": "node scripts/lint-firefox.mjs",
-    "check:all": "node scripts/check-secrets.mjs --all && node scripts/check-deps-age.mjs && node node_modules/typescript/bin/tsc --noEmit && bun test"
+    "check:all": "node scripts/check-secrets.mjs --all && node scripts/make-ui-assets.mjs --check && node scripts/check-deps-age.mjs && node node_modules/typescript/bin/tsc --noEmit && bun test"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",

@@ -12,6 +12,7 @@ export const STATIC = {
   'options.html': 'src/ui/options/options.html',
   'popup.html': 'src/ui/popup/popup.html',
   'ui.css': 'src/ui/ui.css',
+  'icons.css': 'src/ui/icons.css',
   'icons/icon-16.png': 'assets/icons/icon-16.png',
   'icons/icon-32.png': 'assets/icons/icon-32.png',
   'icons/icon-48.png': 'assets/icons/icon-48.png',
