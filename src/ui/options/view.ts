@@ -8,6 +8,7 @@ export interface OptionsHandlers {
   askRemove(origin: string, deviceId: string): void;
   cancelRemove(): void;
   confirmRemove(): void;
+  toggleBroad?(): void;
   /** Popup : ouvre la page d'options complète. */
   openFull?(): void;
 }
@@ -123,6 +124,17 @@ export function renderOptions(
       h(doc, 'h2', { text: 'Clés enregistrées' }),
       ...(state.status === 'loading' ? [h(doc, 'p', { class: 'muted', text: 'Chargement…' })] : keys),
     ),
+
+    compact || !handlers.toggleBroad
+      ? null
+      : h(doc, 'section', { class: 'card' },
+          h(doc, 'h2', { text: 'Actions de page sur tous les sites' }),
+          h(doc, 'p', { class: 'muted', text: 'Aujourd\'hui, « Créer une tâche dans Synco » (clic droit sur un texte sélectionné) fonctionne sans cet accès : le navigateur ne donne accès qu\'à la page où vous faites le clic droit. L\'accès à tous les sites est réservé à de futures fonctions, comme l\'intégration de Tinko. Il n\'est jamais demandé à l\'installation, et il ne donne jamais accès au coffre : le coffre ne répond qu\'aux adresses Synco listées plus haut.' }),
+          h(doc, 'div', { class: 'row' },
+            h(doc, 'div', { class: 'grow' }, badge(state.broad ? 'warn' : 'ok', state.broad ? 'Accès à tous les sites accordé' : 'Accès limité à Synco et au clic droit')),
+            h(doc, 'button', { class: state.broad ? '' : 'primary', text: state.broad ? 'Retirer l\'accès à tous les sites' : 'Autoriser tous les sites', attrs: { type: 'button' }, on: { click: handlers.toggleBroad } }),
+          ),
+        ),
 
     compact
       ? h(doc, 'section', { class: 'card' },

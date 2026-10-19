@@ -4,7 +4,9 @@
   "description": "Coffre de clés local pour Synco (uniquement sur les origines Synco) et actions de page.",
   "version": "0.0.0",
   "permissions": [
-    "storage"
+    "storage",
+    "contextMenus",
+    "activeTab"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'"
@@ -38,5 +40,8 @@
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true
-  }
+  },
+  "optional_host_permissions": [
+    "<all_urls>"
+  ]
 }

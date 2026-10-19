@@ -8,6 +8,10 @@ export interface OptionsBackend {
   remove(origin: string, deviceId: string): Promise<void>;
   /** Doit être appelée directement dans le gestionnaire d'un clic (geste de l'utilisateur). */
   requestAccess(): Promise<boolean>;
+  /** Accès élargi à tous les sites (actions de page), optionnel. */
+  broadAccess(): Promise<boolean>;
+  requestBroad(): Promise<boolean>;
+  revokeBroad(): Promise<boolean>;
 }
 
 export interface OriginGroup {
@@ -23,6 +27,8 @@ export interface OptionsState {
   notice: string | null;
   version: string;
   hosts: { origin: string; granted: boolean }[];
+  /** Accès élargi à tous les sites accordé (actions de page). */
+  broad: boolean;
   groups: OriginGroup[];
   confirm: VaultEntry | null;
   busy: boolean;
@@ -43,7 +49,7 @@ export class OptionsModel {
   constructor(private readonly backend: OptionsBackend) {
     this.state = {
       status: 'loading', error: null, notice: null, version: backend.version(),
-      hosts: [], groups: [], confirm: null, busy: false,
+      hosts: [], broad: false, groups: [], confirm: null, busy: false,
     };
   }
 
@@ -58,8 +64,8 @@ export class OptionsModel {
 
   async refresh(): Promise<void> {
     try {
-      const [{ entries, allowedOrigins }, hosts] = await Promise.all([this.backend.list(), this.backend.hostAccess()]);
-      this.set({ status: 'ready', error: null, hosts, groups: groupEntries(entries, allowedOrigins) });
+      const [{ entries, allowedOrigins }, hosts, broad] = await Promise.all([this.backend.list(), this.backend.hostAccess(), this.backend.broadAccess()]);
+      this.set({ status: 'ready', error: null, hosts, broad, groups: groupEntries(entries, allowedOrigins) });
     } catch {
       this.set({ status: 'error', error: 'L\'extension ne répond pas. Rechargez cette page ; si le problème persiste, désactivez puis réactivez l\'extension.' });
     }
@@ -77,6 +83,23 @@ export class OptionsModel {
       notice: granted
         ? 'Accès accordé.'
         : 'L\'accès n\'a pas été accordé. Sans lui, l\'extension ne peut pas répondre à Synco.',
+    });
+    await this.refresh();
+  }
+
+  /** Accorde ou retire l'accès élargi. La demande est le premier appel du gestionnaire de clic (geste conservé). */
+  async toggleBroad(): Promise<void> {
+    const wasGranted = this.state.broad;
+    let ok = false;
+    try {
+      ok = wasGranted ? await this.backend.revokeBroad() : await this.backend.requestBroad();
+    } catch {
+      ok = false;
+    }
+    this.set({
+      notice: wasGranted
+        ? ok ? 'Accès élargi retiré.' : 'Le retrait de l\'accès élargi a échoué.'
+        : ok ? 'Accès élargi accordé.' : 'L\'accès élargi n\'a pas été accordé.',
     });
     await this.refresh();
   }

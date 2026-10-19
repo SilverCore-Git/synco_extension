@@ -13,6 +13,7 @@ const entry = (over: Partial<VaultEntry> = {}): VaultEntry => ({
 function backend(over: Partial<OptionsBackend> & { entries?: VaultEntry[]; allowed?: string[]; hosts?: { origin: string; granted: boolean }[] } = {}) {
   const calls = { remove: [] as string[], request: 0 };
   const state = { entries: over.entries ?? [entry()], hosts: over.hosts ?? [{ origin: ORIGIN, granted: true }] };
+  const broad = { granted: false, requests: 0, revokes: 0 };
   const b: OptionsBackend = {
     version: () => '1.2.3',
     list: over.list ?? (async () => ({ entries: [...state.entries], allowedOrigins: over.allowed ?? [ORIGIN] })),
@@ -21,13 +22,16 @@ function backend(over: Partial<OptionsBackend> & { entries?: VaultEntry[]; allow
       calls.remove.push(`${o}|${d}`);
       state.entries = state.entries.filter((e) => !(e.origin === o && e.deviceId === d));
     }),
+    broadAccess: over.broadAccess ?? (async () => broad.granted),
+    requestBroad: over.requestBroad ?? (async () => { broad.requests++; broad.granted = true; return true; }),
+    revokeBroad: over.revokeBroad ?? (async () => { broad.revokes++; broad.granted = false; return true; }),
     requestAccess: over.requestAccess ?? (async () => {
       calls.request++;
       state.hosts = state.hosts.map((h) => ({ ...h, granted: true }));
       return true;
     }),
   };
-  return { b, calls, state };
+  return { b, calls, state, broad };
 }
 
 const noop: OptionsHandlers = { grantAccess() {}, askRemove() {}, cancelRemove() {}, confirmRemove() {} };
@@ -128,6 +132,29 @@ describe('modèle de la page d\'options', () => {
     }
   });
 
+  test('accès élargi : jamais accordé par défaut ; demande puis retrait, état rafraîchi', async () => {
+    const { b, broad } = backend();
+    const m = new OptionsModel(b);
+    await m.refresh();
+    expect(m.current.broad).toBe(false);
+    await m.toggleBroad();
+    expect(broad.requests).toBe(1);
+    expect(m.current).toMatchObject({ broad: true, notice: 'Accès élargi accordé.' });
+    await m.toggleBroad();
+    expect(broad.revokes).toBe(1);
+    expect(m.current).toMatchObject({ broad: false, notice: 'Accès élargi retiré.' });
+  });
+
+  test('accès élargi refusé ou en échec : le dit, sans exception', async () => {
+    for (const requestBroad of [async () => false, async () => { throw new Error('geste requis'); }]) {
+      const m = new OptionsModel(backend({ requestBroad }).b);
+      await m.refresh();
+      await m.toggleBroad();
+      expect(m.current.broad).toBe(false);
+      expect(m.current.notice).toContain('n\'a pas été accordé');
+    }
+  });
+
   test('groupEntries : regroupe et ordonne', () => {
     const groups = groupEntries([entry({ origin: OTHER_ORIGIN }), entry({ deviceId: DEVICE_2 }), entry()], [ORIGIN]);
     expect(groups.map((g) => g.entries.length)).toEqual([2, 1]);
@@ -137,7 +164,7 @@ describe('modèle de la page d\'options', () => {
 describe('vue de la page d\'options', () => {
   const state = (over: Partial<OptionsState> = {}): OptionsState => ({
     status: 'ready', error: null, notice: null, version: '1.2.3',
-    hosts: [{ origin: ORIGIN, granted: true }], groups: groupEntries([entry()], [ORIGIN]), confirm: null, busy: false, ...over,
+    hosts: [{ origin: ORIGIN, granted: true }], broad: false, groups: groupEntries([entry()], [ORIGIN]), confirm: null, busy: false, ...over,
   });
   const render = (s: OptionsState, h = noop) => asEl(renderOptions(fakeDoc(), s, h, NOW));
 
@@ -173,6 +200,21 @@ describe('vue de la page d\'options', () => {
     expect(opened).toBe(1);
     // sans gestionnaire, pas de bouton orphelin
     expect(asEl(renderOptions(fakeDoc(), state(), noop, NOW, true)).findAll((e) => e.textContent.startsWith('Plus d'))).toEqual([]);
+  });
+
+  test('page complète : carte « tous les sites » avec explications honnêtes ; absente du popup', () => {
+    let toggled = 0;
+    const full = render(state(), { ...noop, toggleBroad: () => { toggled++; } });
+    expect(full.textContent).toContain('Actions de page sur tous les sites');
+    expect(full.textContent).toContain('jamais demandé à l\'installation');
+    expect(full.textContent).toContain('ne donne jamais accès au coffre');
+    buttonByText(full, 'Autoriser tous les sites').click();
+    expect(toggled).toBe(1);
+    const granted = render(state({ broad: true }), { ...noop, toggleBroad: () => { toggled++; } });
+    expect(granted.textContent).toContain('Accès à tous les sites accordé');
+    buttonByText(granted, 'Retirer l\'accès à tous les sites').click();
+    expect(toggled).toBe(2);
+    expect(asEl(renderOptions(fakeDoc(), state(), { ...noop, toggleBroad: () => {} }, NOW, true)).textContent).not.toContain('tous les sites');
   });
 
   test('aucune clé : message explicite', () => {

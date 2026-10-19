@@ -2,6 +2,8 @@
 // Tous les écouteurs sont enregistrés de façon synchrone au chargement : un worker rendormi est réveillé par
 // l'événement, et rien du coffre ne vit en mémoire entre deux messages (tout est relu depuis storage.local).
 import { api } from '../shared/api';
+import { createTaskAction, registerPageActions, type PageActionsHost } from '../page-actions/actions';
+import { DraftStore, type SessionArea } from '../page-actions/store';
 import { BUILT_IN_ORIGINS } from '../shared/origins';
 import { errorResponse, PROMPT_PAGE } from '../shared/protocol';
 import { IdbDeviceSecret } from '../vault/idbSecret';
@@ -63,6 +65,29 @@ api.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   router.handle(message, sender).then(sendResponse, () => sendResponse(errorResponse(null, 'unavailable')));
   return true;
 });
+
+// Actions de page (tous sites) : menu contextuel « Créer une tâche dans Synco ». Aucun lien avec le coffre :
+// le module n'importe rien de vault/ et n'écrit que dans storage.session (clé page-actions:draft).
+const pageHost: PageActionsHost = {
+  createMenu: (item) =>
+    new Promise<void>((resolve) => {
+      api.contextMenus.create(
+        { id: item.id, title: item.title, contexts: item.contexts as [chrome.contextMenus.ContextType, ...chrome.contextMenus.ContextType[]], documentUrlPatterns: item.documentUrlPatterns },
+        () => {
+          void api.runtime.lastError; // lu pour ne pas laisser d'erreur « non vérifiée »
+          resolve();
+        },
+      );
+    }),
+  removeAllMenus: () => api.contextMenus.removeAll(),
+  onInstalled: (cb) => api.runtime.onInstalled.addListener(() => cb()),
+  onMenuClicked: (cb) => api.contextMenus.onClicked.addListener((info, tab) => cb(info, tab)),
+  async setBadge(text) {
+    await api.action.setBadgeText({ text });
+    if (text) await api.action.setBadgeBackgroundColor({ color: '#16ac77' });
+  },
+};
+registerPageActions(pageHost, [createTaskAction({ store: new DraftStore(api.storage.session as SessionArea), host: pageHost })]);
 
 // Création du second secret dès l'installation (sinon, au premier usage).
 api.runtime.onInstalled.addListener(() => {

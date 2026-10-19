@@ -1,3 +1,4 @@
+import { hasBroadAccess, requestBroadAccess, revokeBroadAccess, type PermissionsLike } from '../../page-actions/permissions';
 import { api } from '../../shared/api';
 import type { VaultEntry } from '../../vault/vault';
 import type { OptionsBackend } from './model';
@@ -11,6 +12,7 @@ function result<T>(response: unknown): T {
 }
 
 export function createOptionsBackend(): OptionsBackend {
+  const permissions = api.permissions as PermissionsLike;
   return {
     version: () => api.runtime.getManifest().version,
     async list() {
@@ -26,5 +28,8 @@ export function createOptionsBackend(): OptionsBackend {
     requestAccess() {
       return api.permissions.request({ origins: api.runtime.getManifest().host_permissions ?? [] });
     },
+    broadAccess: () => hasBroadAccess(permissions),
+    requestBroad: () => requestBroadAccess(permissions),
+    revokeBroad: () => revokeBroadAccess(permissions),
   };
 }

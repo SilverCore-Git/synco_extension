@@ -75,14 +75,22 @@ describe.each(combos)('manifeste %s (%s)', (targetName, mode) => {
   });
 
   test('aucune permission large requise à l\'installation, pas de externally_connectable', () => {
-    const text = JSON.stringify(m);
-    expect(text).not.toContain('<all_urls>');
-    // Accès au site : uniquement les origines exactes de la liste blanche, jamais d'autre site.
+    // Installation : le coffre n'a accès qu'aux origines exactes de la liste blanche, jamais à un autre site.
     expect(m.host_permissions).toEqual([...new Set(originsFor(config, mode).map((o: string) => expectedPattern(o, targetName)))]);
-    expect(m.optional_host_permissions).toBeUndefined();
+    expect(m.host_permissions).not.toContain('<all_urls>');
+    // L'accès à tous les sites n'existe qu'en optionnel (demandé sur geste, jamais à l'installation) et une seule fois.
+    expect(m.optional_host_permissions).toEqual(['<all_urls>']);
+    expect(JSON.stringify({ ...m, optional_host_permissions: undefined }).match(/<all_urls>|\*:\/\/\*|https?:\/\/\*\//g)).toBeNull();
+    for (const p of m.permissions as string[]) expect(p).not.toMatch(/\*|:\/\//);
     expect(m.externally_connectable).toBeUndefined();
     expect(m.permissions).not.toContain('tabs');
     expect(m.permissions).not.toContain('offscreen');
+    expect(m.permissions).not.toContain('scripting'); // inutile : le texte vient du menu contextuel
+  });
+
+  test('actions de page : permissions minimales (menu contextuel, onglet actif au clic, stockage de session)', () => {
+    expect([...m.permissions].sort()).toEqual(['activeTab', 'contextMenus', 'storage']);
+    expect(m.content_scripts).toHaveLength(1); // aucun autre content script : celui du coffre, limité aux origines Synco
   });
 
   test('interface : page d\'options, popup, icônes existantes, rien d\'exposé aux pages web', () => {

@@ -8,6 +8,7 @@ const model = new OptionsModel(createOptionsBackend());
 
 const handlers = {
   grantAccess: () => void model.grantAccess(), // premier appel du gestionnaire : le geste de l'utilisateur est conservé
+  toggleBroad: () => void model.toggleBroad(), // premier appel du gestionnaire : le geste de l'utilisateur est conservé
   askRemove: (origin: string, deviceId: string) => model.askRemove(origin, deviceId),
   cancelRemove: () => model.cancelRemove(),
   confirmRemove: () => void model.confirmRemove(),
