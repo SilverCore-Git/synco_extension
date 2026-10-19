@@ -10,15 +10,26 @@ declare const __SYNCO_DEV__: boolean;
  * Diagnostic de développement : inscrit les dernières étapes du handshake dans un attribut de <html>, pour pouvoir
  * constater depuis la console de la page que le content script est injecté. Étiquettes fixes, aucune donnée.
  */
+const pending: string[] = [];
+const written: string[] = [];
+
+function flushDebug(): void {
+  const root = document.documentElement;
+  if (!root) return; // Firefox : à `document_start`, <html> peut ne pas exister encore
+  written.push(...pending.splice(0));
+  root.dataset.syncoDebug = written.slice(-12).join(',');
+}
+
 function devDebug(label: string): void {
+  pending.push(label);
   try {
-    const root = document.documentElement;
-    const previous = root.dataset.syncoDebug ? root.dataset.syncoDebug.split(',') : [];
-    root.dataset.syncoDebug = [...previous, label].slice(-12).join(',');
+    flushDebug();
   } catch {
-    /* document pas encore prêt : sans importance pour un diagnostic */
+    /* sans importance pour un diagnostic */
   }
 }
+
+if (__SYNCO_DEV__) document.addEventListener('DOMContentLoaded', () => devDebug('page-prête'));
 
 if (__SYNCO_DEV__) devDebug('injecté');
 
