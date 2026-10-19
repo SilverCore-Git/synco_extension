@@ -5,7 +5,7 @@ Extension Chrome et Firefox pour [Synco](https://synco.one). Elle a deux rôles,
 1. **Coffre de clés** (`src/vault/`) : un type de coffre « extension » pour le chiffrement de bout en bout de Synco. Il ne répond **qu'aux origines Synco** de la liste blanche (correspondance exacte). Ce n'est pas un gestionnaire de passkeys : aucune interception de `navigator.credentials`, aucune réponse à d'autres sites.
 2. **Actions de page** (`src/page-actions/`) : intégrations au navigateur valables sur tous les sites (par exemple « Créer une tâche dans Synco » sur une sélection de texte). Ce module n'a jamais accès au coffre.
 
-> **État : phase P0 (socle).** Le build, les manifestes et les contrôles sont en place. Le coffre, le canal page ↔ extension et l'interface arrivent dans les phases suivantes ; `src/background/` et `src/bridge/` ne contiennent encore que des squelettes.
+> **État : phase P3 (interface).** Le coffre, le canal page ↔ extension et l'interface (fenêtre de saisie du PIN, page d'options) sont en place. Les actions de page (`src/page-actions/`) et les paquets de publication arrivent ensuite.
 
 ## Origines autorisées
 
@@ -30,7 +30,9 @@ node scripts/build.mjs --dev       # origines de développement, nom « (dev) »
 
 Le build est reproductible : versions exactes, `bun.lock` versionné, aucun horodatage, aucune minification (le code reste lisible pour la relecture de l'AMO). Il n'y a **aucune dépendance d'exécution** : seulement des outils de build et de test.
 
-Charger en local : Chrome → `chrome://extensions` (mode développeur, « Charger l'extension non empaquetée » sur `dist/chrome`) ; Firefox → `about:debugging` (« Charger un module complémentaire temporaire » sur `dist/firefox/manifest.json`).
+Charger en local : Chrome → `chrome://extensions` (mode développeur, « Charger l'extension non empaquetée » sur `dist/chrome`) ; Firefox → `about:debugging` (« Charger un module complémentaire temporaire » sur `dist/firefox/manifest.json`), puis, dans `about:addons` → Autorisations, accorder l'accès au site. Un clic sur l'icône de l'extension ouvre sa page d'options.
+
+> Firefox ne gère pas les ports dans les motifs d'URL : son manifeste reçoit un motif sans port (`https://localhost/*` en développement). L'origine exacte, port compris, est revérifiée par le content script puis par le worker.
 
 ## Vérifications
 
