@@ -21,6 +21,11 @@ export interface BridgeDeps {
   createChannel?: () => MessageChannel;
   /** Nombre maximal de canaux ouverts : le plus ancien est fermé au-delà. */
   maxPorts?: number;
+  /**
+   * Origines exactes (port compris) pour lesquelles le pont répond. Firefox ne sait pas restreindre l'injection à un
+   * port : le content script refuse lui-même toute autre origine.
+   */
+  allowedOrigins: readonly string[];
   /** Diagnostic du build de développement (jamais en production) : étiquettes sans aucune donnée. */
   debug?: (label: string) => void;
 }
@@ -63,6 +68,10 @@ export function startBridge(deps: BridgeDeps): void {
     }
     if (event.origin !== win.location.origin) {
       if (isHello) debug('hello-refusé:origine');
+      return;
+    }
+    if (!deps.allowedOrigins.includes(win.location.origin)) {
+      if (isHello) debug('hello-refusé:liste');
       return;
     }
     if (!isPlain(d) || d.source !== 'synco-page' || d.type !== 'hello') return;

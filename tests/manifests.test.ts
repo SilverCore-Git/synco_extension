@@ -8,6 +8,10 @@ const base = read('manifests/base.json');
 const targets = { chrome: read('manifests/chrome.json'), firefox: read('manifests/firefox.json') };
 
 type Name = 'chrome' | 'firefox';
+/** Motif attendu : Firefox ne gère pas les ports (bugs 1362809, 1468162), Chrome si. Calculé ici de façon indépendante. */
+const expectedPattern = (origin: string, target: Name) =>
+  target === 'firefox' ? `https://${new URL(origin).hostname}/*` : `${origin}/*`;
+
 const gen = (targetName: Name, mode: 'prod' | 'dev'): any =>
   buildManifest({ base, target: targets[targetName], targetName, mode, version: '1.2.3', origins: originsFor(config, mode) });
 
@@ -63,7 +67,7 @@ describe.each(combos)('manifeste %s (%s)', (targetName, mode) => {
   test('content script limité aux origines exactes, monde isolé, cadre principal seul', () => {
     expect(m.content_scripts).toHaveLength(1);
     const cs = m.content_scripts[0];
-    expect(cs.matches).toEqual(originsFor(config, mode).map((o: string) => `${o}/*`));
+    expect(cs.matches).toEqual([...new Set(originsFor(config, mode).map((o: string) => expectedPattern(o, targetName)))]);
     expect(cs.all_frames).toBe(false);
     expect(cs.match_about_blank).toBe(false);
     expect(cs.world).toBeUndefined();
@@ -74,7 +78,7 @@ describe.each(combos)('manifeste %s (%s)', (targetName, mode) => {
     const text = JSON.stringify(m);
     expect(text).not.toContain('<all_urls>');
     // Accès au site : uniquement les origines exactes de la liste blanche, jamais d'autre site.
-    expect(m.host_permissions).toEqual(originsFor(config, mode).map((o: string) => `${o}/*`));
+    expect(m.host_permissions).toEqual([...new Set(originsFor(config, mode).map((o: string) => expectedPattern(o, targetName)))]);
     expect(m.optional_host_permissions).toBeUndefined();
     expect(m.externally_connectable).toBeUndefined();
     expect(m.permissions).not.toContain('tabs');
@@ -100,9 +104,27 @@ describe('séparation prod / dev', () => {
     expect(text).toContain('https://app.synco.one/*');
   });
 
-  test.each(['chrome', 'firefox'] as Name[])('le build dev %s n\'autorise que les origines de développement', (t) => {
-    const matches = gen(t, 'dev').content_scripts[0].matches;
-    expect(matches).toEqual(['https://localhost:5174/*']);
+  test('Firefox : aucun port dans les motifs (il n\'y correspondrait à aucune page) ; Chrome : port conservé', () => {
+    for (const mode of ['prod', 'dev'] as const) {
+      const ff = gen('firefox', mode);
+      for (const pattern of [...ff.content_scripts[0].matches, ...ff.host_permissions]) {
+        expect(pattern).not.toMatch(/^https:\/\/[^/]*:\d+/);
+      }
+    }
+    expect(gen('firefox', 'dev').content_scripts[0].matches).toEqual(['https://localhost/*']);
+    expect(gen('chrome', 'dev').content_scripts[0].matches).toEqual(['https://localhost:5174/*']);
+  });
+
+  test('un motif ne dépasse jamais l\'hôte de la liste blanche, quel que soit le navigateur', () => {
+    for (const t of ['chrome', 'firefox'] as Name[]) {
+      for (const mode of ['prod', 'dev'] as const) {
+        const hosts = originsFor(config, mode).map((o: string) => new URL(o).hostname);
+        for (const pattern of gen(t, mode).content_scripts[0].matches) {
+          expect(hosts).toContain(new URL(pattern.replace('*', 'x')).hostname);
+          expect(pattern).not.toContain('*.');
+        }
+      }
+    }
   });
 
   test('Firefox : aucune clé propre à Chrome (version_name, minimum_chrome_version)', () => {

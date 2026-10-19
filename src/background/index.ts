@@ -45,11 +45,15 @@ const router = new Router({
   baseUrl: api.runtime.getURL('/'),
   version: api.runtime.getManifest().version,
   async hostAccess() {
+    // Les motifs viennent du manifeste généré : sans port sur Firefox, avec port sur Chrome.
+    const patterns = api.runtime.getManifest().host_permissions ?? [];
     return Promise.all(
-      BUILT_IN_ORIGINS.map(async (origin) => ({
-        origin,
-        granted: await api.permissions.contains({ origins: [`${origin}/*`] }),
-      })),
+      BUILT_IN_ORIGINS.map(async (origin) => {
+        const host = new URL(origin).hostname;
+        const mine = patterns.filter((p: string) => p.startsWith(`https://${host}`));
+        const granted = mine.length > 0 && (await api.permissions.contains({ origins: mine }));
+        return { origin, granted };
+      }),
     );
   },
 });

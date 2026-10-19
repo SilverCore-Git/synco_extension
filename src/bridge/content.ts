@@ -1,6 +1,7 @@
 // Content script : injecté uniquement sur les origines Synco (liste blanche générée au build), monde isolé,
 // cadre principal seulement. Aucun script n'est injecté dans la page.
 import { api } from '../shared/api';
+import { BUILT_IN_ORIGINS } from '../shared/origins';
 import { startBridge } from './bridge';
 
 /** Défini par scripts/build.mjs : vrai seulement pour `--dev`. Le code de diagnostic disparaît du paquet de production. */
@@ -35,6 +36,7 @@ if (__SYNCO_DEV__) devDebug('injecté');
 
 startBridge({
   win: window,
+  allowedOrigins: BUILT_IN_ORIGINS,
   send: (envelope) => api.runtime.sendMessage(envelope),
   ...(__SYNCO_DEV__ ? { debug: devDebug } : {}),
 });

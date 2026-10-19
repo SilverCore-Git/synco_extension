@@ -32,6 +32,7 @@ function setup(respond: (e: VaultEnvelope) => unknown | Promise<unknown> = (e) =
       return respond(envelope);
     },
     maxPorts: 3,
+    allowedOrigins: [ORIGIN],
   });
   const connect = () => {
     const before = win.posted.length;
@@ -95,6 +96,16 @@ describe('handshake', () => {
     expect(win.posted).toHaveLength(1);
     expect(win.posted[0]!.msg).toEqual({ source: 'synco-extension', type: 'unsupported', protocol: 1 });
     expect(win.posted[0]!.transfer).toHaveLength(0);
+  });
+
+  test('origine de la page absente de la liste blanche (Firefox ne filtre pas le port) : aucune réponse', () => {
+    const win = new FakeWindow();
+    win.location = { origin: 'https://localhost:9999' }; // même hôte que la liste, autre port
+    const labels: string[] = [];
+    startBridge({ win, send: async () => ({}), allowedOrigins: ['https://localhost:5174'], debug: (l) => labels.push(l) });
+    win.receive(hello, { origin: 'https://localhost:9999' });
+    expect(win.posted).toHaveLength(0);
+    expect(labels).toEqual(['hello-refusé:liste']);
   });
 
   test('aucune diffusion : seules les réponses « ready » sortent sur window', async () => {
@@ -202,7 +213,7 @@ describe('diagnostic de développement', () => {
   function withDebug() {
     const win = new FakeWindow();
     const labels: string[] = [];
-    startBridge({ win, send: async () => ({}), debug: (l) => labels.push(l) });
+    startBridge({ win, send: async () => ({}), allowedOrigins: [ORIGIN], debug: (l) => labels.push(l) });
     return { win, labels };
   }
 

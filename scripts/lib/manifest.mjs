@@ -31,6 +31,16 @@ export function assertNoLocalOrigins(text, label) {
 }
 
 /**
+ * Motif d'URL d'extension pour une origine. Firefox ne gère pas les ports dans les motifs (bugs 1362809 et 1468162) :
+ * un motif avec port n'y correspond à aucune page. On lui donne donc le motif sans port ; l'origine exacte, port
+ * compris, est revérifiée par le content script (liste blanche injectée) puis par le worker (sender.origin).
+ */
+export function matchPattern(origin, targetName) {
+  if (targetName === 'firefox') return `https://${new URL(origin).hostname}/*`;
+  return `${origin}/*`;
+}
+
+/**
  * Fusion de premier niveau : le manifeste de la cible remplace les clés de base du même nom.
  * @param {{ base: object, target: object, targetName: 'chrome' | 'firefox', mode: 'prod' | 'dev', version: string, origins: string[] }} p
  */
@@ -38,14 +48,12 @@ export function buildManifest({ base, target, targetName, mode, version, origins
   const manifest = structuredClone({ ...base, ...target });
   manifest.version = version;
 
-  manifest.content_scripts = base.content_scripts.map((cs) => ({
-    ...cs,
-    matches: origins.map((o) => `${o}/*`),
-  }));
+  const patterns = [...new Set(origins.map((o) => matchPattern(o, targetName)))];
+  manifest.content_scripts = base.content_scripts.map((cs) => ({ ...cs, matches: patterns }));
 
   // Accès limité aux origines exactes de la liste blanche, jamais à d'autres sites. Firefox MV3 laisse
   // l'utilisateur accorder ou retirer ces accès ; la page d'options le détecte et le demande (permissions.request).
-  manifest.host_permissions = origins.map((o) => `${o}/*`);
+  manifest.host_permissions = patterns;
 
   if (mode === 'dev') {
     manifest.name = `${manifest.name} (dev)`;
