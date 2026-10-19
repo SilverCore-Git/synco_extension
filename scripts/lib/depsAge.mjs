@@ -43,13 +43,22 @@ export function isOldEnough(publishedIso, now = Date.now(), days = MIN_AGE_DAYS)
  * @param {{ name: string, version: string }[]} packages
  * @param {(name: string) => Promise<Record<string, string>>} getTimes  date de publication par version
  */
-export async function checkAges(packages, getTimes, now = Date.now(), days = MIN_AGE_DAYS) {
-  const cache = new Map();
+export async function checkAges(packages, getTimes, now = Date.now(), days = MIN_AGE_DAYS, concurrency = 8) {
+  // Une requête par paquet distinct, en parallèle (quelques centaines de paquets avec un outil de lint).
+  const names = [...new Set(packages.map((p) => p.name))];
+  const times = new Map();
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, names.length) }, async () => {
+      while (next < names.length) {
+        const name = names[next++];
+        times.set(name, await getTimes(name));
+      }
+    }),
+  );
   const problems = [];
   for (const { name, version } of packages) {
-    if (!cache.has(name)) cache.set(name, getTimes(name));
-    const times = await cache.get(name);
-    const published = times[version];
+    const published = times.get(name)[version];
     if (!isOldEnough(published, now, days)) problems.push({ name, version, published: published ?? null });
   }
   return problems;
