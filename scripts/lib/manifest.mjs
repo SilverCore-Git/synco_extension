@@ -45,7 +45,8 @@ export function buildManifest({ base, target, targetName, mode, version, origins
 
   if (mode === 'dev') {
     manifest.name = `${manifest.name} (dev)`;
-    manifest.version_name = `${version}-dev`;
+    // `version_name` n'existe que pour Chrome ; Firefox signale la clé comme inconnue.
+    if (targetName === 'chrome') manifest.version_name = `${version}-dev`;
     const gecko = manifest.browser_specific_settings?.gecko;
     if (gecko) gecko.id = gecko.id.replace('@', '-dev@');
   }

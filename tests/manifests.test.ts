@@ -103,6 +103,16 @@ describe('séparation prod / dev', () => {
     expect(matches).toEqual(['https://localhost:5174/*']);
   });
 
+  test('Firefox : aucune clé propre à Chrome (version_name, minimum_chrome_version)', () => {
+    for (const mode of ['prod', 'dev'] as const) {
+      const m = gen('firefox', mode);
+      expect(m.version_name).toBeUndefined();
+      expect(m.minimum_chrome_version).toBeUndefined();
+      expect(m.background.service_worker).toBeUndefined();
+    }
+    expect(gen('chrome', 'dev').version_name).toBe('1.2.3-dev');
+  });
+
   test('le build dev est identifiable et ne partage pas l\'identifiant Firefox', () => {
     const dev = gen('firefox', 'dev');
     const prod = gen('firefox', 'prod');
