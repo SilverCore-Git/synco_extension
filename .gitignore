@@ -1,0 +1,41 @@
+# Dépôt PUBLIC : tout ce qui peut contenir un secret ou un artefact signé est exclu.
+# Le contrôle `scripts/check-secrets.mjs` applique la même liste en défense en profondeur.
+
+# Dépendances et artefacts de build
+node_modules/
+dist/
+web-ext-artifacts/
+*.zip
+*.tgz
+coverage/
+*.tsbuildinfo
+
+# Clés de signature et paquets signés (Chrome : .pem / .crx ; Firefox : .xpi)
+*.pem
+*.crx
+*.xpi
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Identifiants (stores, registre npm, AMO, CI)
+.env
+.env.*
+.npmrc
+.netrc
+credentials.json
+*.credentials.json
+.web-ext-config.*
+.amo*
+.chrome-webstore*
+
+# Éditeur, système, outils locaux
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+.claude/
+graphify-out/
