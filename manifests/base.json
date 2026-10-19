@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Synco Extension",
+  "description": "Coffre de clés local pour Synco (uniquement sur les origines Synco) et actions de page.",
+  "version": "0.0.0",
+  "permissions": ["storage"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'"
+  },
+  "content_scripts": [
+    {
+      "matches": [],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": false,
+      "match_about_blank": false
+    }
+  ]
+}
