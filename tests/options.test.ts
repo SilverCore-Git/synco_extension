@@ -161,6 +161,20 @@ describe('vue de la page d\'options', () => {
     expect(render(state()).findAll((e) => e.textContent === 'Accorder l\'accès')).toEqual([]);
   });
 
+  test('popup (mode compact) : même contenu utile, limites résumées, accès aux réglages complets', () => {
+    let opened = 0;
+    const root = asEl(renderOptions(fakeDoc(), state(), { ...noop, openFull: () => { opened++; } }, NOW, true));
+    expect(root.getAttribute('class')).toBe('options compact');
+    expect(root.textContent).toContain('Accès accordé');
+    expect(root.textContent).toContain('Appareil 3f2b8c1e…');
+    expect(root.textContent).toContain('Après 10 erreurs de PIN');
+    expect(root.textContent).not.toContain('pas un gestionnaire de passkeys'); // détail réservé à la page complète
+    buttonByText(root, 'Plus d\'informations et réglages').click();
+    expect(opened).toBe(1);
+    // sans gestionnaire, pas de bouton orphelin
+    expect(asEl(renderOptions(fakeDoc(), state(), noop, NOW, true)).findAll((e) => e.textContent.startsWith('Plus d'))).toEqual([]);
+  });
+
   test('aucune clé : message explicite', () => {
     expect(render(state({ groups: [] })).textContent).toContain('Aucune clé n\'est enregistrée');
   });

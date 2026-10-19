@@ -85,9 +85,9 @@ describe.each(combos)('manifeste %s (%s)', (targetName, mode) => {
     expect(m.permissions).not.toContain('offscreen');
   });
 
-  test('interface : page d\'options, icônes existantes, clic sur l\'icône sans popup, rien d\'exposé aux pages web', () => {
+  test('interface : page d\'options, popup, icônes existantes, rien d\'exposé aux pages web', () => {
     expect(m.options_ui).toEqual({ page: 'options.html', open_in_tab: true });
-    expect(m.action.default_popup).toBeUndefined();
+    expect(m.action.default_popup).toBe('popup.html'); // un vrai popup sous l'icône, pas un onglet
     for (const path of [...Object.values(m.icons), ...Object.values(m.action.default_icon)] as string[]) {
       expect(() => readFileSync(new URL(`../assets/${path}`, import.meta.url))).not.toThrow();
     }

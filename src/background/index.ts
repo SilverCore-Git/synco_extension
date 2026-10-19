@@ -64,11 +64,6 @@ api.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   return true;
 });
 
-// Clic sur l'icône de la barre d'outils : page d'options (état, accès au site, clés enregistrées).
-api.action.onClicked.addListener(() => {
-  void api.runtime.openOptionsPage();
-});
-
 // Création du second secret dès l'installation (sinon, au premier usage).
 api.runtime.onInstalled.addListener(() => {
   void secret.getKey().catch(() => undefined);

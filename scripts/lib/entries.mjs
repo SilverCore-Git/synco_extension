@@ -4,11 +4,13 @@ export const ENTRIES = {
   content: 'src/bridge/content.ts',
   prompt: 'src/ui/prompt/index.ts',
   options: 'src/ui/options/index.ts',
+  popup: 'src/ui/popup/index.ts',
 };
 
 export const STATIC = {
   'prompt.html': 'src/ui/prompt/prompt.html',
   'options.html': 'src/ui/options/options.html',
+  'popup.html': 'src/ui/popup/popup.html',
   'ui.css': 'src/ui/ui.css',
   'icons/icon-16.png': 'assets/icons/icon-16.png',
   'icons/icon-32.png': 'assets/icons/icon-32.png',

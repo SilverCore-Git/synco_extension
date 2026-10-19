@@ -17,6 +17,7 @@ export const MAX_REASON_DISPLAY = 120;
 
 export const PROMPT_PAGE = 'prompt.html';
 export const OPTIONS_PAGE = 'options.html';
+export const POPUP_PAGE = 'popup.html';
 
 export const OPS = ['status', 'create', 'load', 'remove', 'has'] as const;
 export type Op = (typeof OPS)[number];

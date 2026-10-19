@@ -2,7 +2,7 @@ import { PromptManager, type PromptHost, type Timers } from '../../src/backgroun
 import { MemoryLimiterStore, SlidingWindowLimiter } from '../../src/background/rateLimit';
 import { Router } from '../../src/background/router';
 import type { SenderLike } from '../../src/background/auth';
-import { OPTIONS_PAGE, PROMPT_PAGE } from '../../src/shared/protocol';
+import { OPTIONS_PAGE, POPUP_PAGE, PROMPT_PAGE } from '../../src/shared/protocol';
 import { Vault } from '../../src/vault/vault';
 import { DEVICE, FAST, MemorySecret, MemoryStorage, ORIGIN, OTHER_ORIGIN } from './vaultFixtures';
 
@@ -31,6 +31,13 @@ export const promptSender = (sessionId = '0'.repeat(32), over: Partial<SenderLik
 export const optionsSender = (over: Partial<SenderLike> = {}): SenderLike => ({
   id: EXT_ID,
   url: `${BASE}${OPTIONS_PAGE}`,
+  frameId: 0,
+  ...over,
+});
+
+export const popupSender = (over: Partial<SenderLike> = {}): SenderLike => ({
+  id: EXT_ID,
+  url: `${BASE}${POPUP_PAGE}`,
   frameId: 0,
   ...over,
 });

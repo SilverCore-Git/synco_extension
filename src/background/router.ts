@@ -3,6 +3,7 @@ import {
   errorResponse,
   OPTIONS_PAGE,
   parseRequest,
+  POPUP_PAGE,
   PROMPT_PAGE,
   PROTOCOL_VERSION,
   sanitizeReason,
@@ -34,7 +35,7 @@ const isPlain = (v: unknown): v is Record<string, unknown> => typeof v === 'obje
  * reconstruit tout depuis `storage.local`. Trois familles de messages, chacune authentifiée sur `sender` :
  *  - `vault`    : depuis le content script, sur une origine de la liste blanche, cadre principal seulement ;
  *  - `prompt`   : depuis prompt.html (page de l'extension) ;
- *  - `internal` : depuis options.html (page de l'extension).
+ *  - `internal` : depuis popup.html ou options.html (pages de l'extension).
  */
 export class Router {
   constructor(private readonly deps: RouterDeps) {}
@@ -146,8 +147,10 @@ export class Router {
 
   private async handleInternal(m: Record<string, unknown>, sender: SenderLike | undefined): Promise<unknown> {
     const ctx = { extensionId: this.deps.extensionId, baseUrl: this.deps.baseUrl };
-    // Seule la page d'options : ni l'invite du PIN, ni un content script, ni une page web.
-    if (!isExtensionPage(sender, ctx, OPTIONS_PAGE)) return errorResponse(null, 'unavailable');
+    // Seulement le popup et la page d'options : ni l'invite du PIN, ni un content script, ni une page web.
+    if (!isExtensionPage(sender, ctx, POPUP_PAGE) && !isExtensionPage(sender, ctx, OPTIONS_PAGE)) {
+      return errorResponse(null, 'unavailable');
+    }
 
     switch (m.op) {
       case 'list':

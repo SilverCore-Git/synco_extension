@@ -1,5 +1,5 @@
 import { isAllowedOrigin } from '../shared/origins';
-import { OPTIONS_PAGE, PROMPT_PAGE } from '../shared/protocol';
+import { OPTIONS_PAGE, POPUP_PAGE, PROMPT_PAGE } from '../shared/protocol';
 
 /** Sous-ensemble de `runtime.MessageSender` utilisé ici. Tout vient du navigateur, jamais du message. */
 export interface SenderLike {
@@ -45,11 +45,11 @@ export function authenticateSender(sender: SenderLike | undefined, ctx: AuthCont
   return { ok: true, origin, tabId };
 }
 
-/** Vrai si `sender` est une page précise de cette extension (prompt.html, options.html). */
+/** Vrai si `sender` est une page précise de cette extension (prompt.html, options.html, popup.html). */
 export function isExtensionPage(
   sender: SenderLike | undefined,
   ctx: { extensionId: string; baseUrl: string },
-  page: typeof PROMPT_PAGE | typeof OPTIONS_PAGE,
+  page: typeof PROMPT_PAGE | typeof OPTIONS_PAGE | typeof POPUP_PAGE,
 ): boolean {
   if (!sender || !ctx.extensionId || sender.id !== ctx.extensionId || sender.url === undefined) return false;
   try {

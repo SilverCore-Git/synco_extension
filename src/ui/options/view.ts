@@ -8,10 +8,18 @@ export interface OptionsHandlers {
   askRemove(origin: string, deviceId: string): void;
   cancelRemove(): void;
   confirmRemove(): void;
+  /** Popup : ouvre la page d'options complète. */
+  openFull?(): void;
 }
 
 /** Page d'options : tout texte venant du stockage ou d'une page web est inséré en texte (jamais en HTML). */
-export function renderOptions(doc: Document, state: OptionsState, handlers: OptionsHandlers, now = Date.now()): HTMLElement {
+export function renderOptions(
+  doc: Document,
+  state: OptionsState,
+  handlers: OptionsHandlers,
+  now = Date.now(),
+  compact = false,
+): HTMLElement {
   const badge = (kind: 'ok' | 'bad' | 'warn', text: string) => h(doc, 'span', { class: `badge ${kind}`, text });
 
   const hostRows = state.hosts.map((host) =>
@@ -99,7 +107,7 @@ export function renderOptions(doc: Document, state: OptionsState, handlers: Opti
   return h(
     doc,
     'main',
-    { class: 'options', attrs: { 'aria-busy': state.status === 'loading' ? 'true' : 'false' } },
+    { class: compact ? 'options compact' : 'options', attrs: { 'aria-busy': state.status === 'loading' ? 'true' : 'false' } },
     h(doc, 'h1', { text: 'Synco Extension' }),
     h(doc, 'p', { class: 'muted', text: `Version ${state.version} · coffre de clés local pour Synco` }),
     state.error ? h(doc, 'p', { class: 'banner error', text: state.error, attrs: { role: 'alert' } }) : null,
@@ -116,15 +124,20 @@ export function renderOptions(doc: Document, state: OptionsState, handlers: Opti
       ...(state.status === 'loading' ? [h(doc, 'p', { class: 'muted', text: 'Chargement…' })] : keys),
     ),
 
-    h(doc, 'section', { class: 'card' },
-      h(doc, 'h2', { text: 'À savoir' }),
-      h(doc, 'ul', {},
-        h(doc, 'li', { text: 'Cette extension garde une clé locale par appareil, protégée par votre code PIN. Elle n\'est jamais envoyée à Synco.' }),
-        h(doc, 'li', { text: 'Ce n\'est pas un gestionnaire de passkeys : elle ne répond à aucun autre site que Synco.' }),
-        h(doc, 'li', { text: 'La clé n\'est pas protégée par du matériel : quelqu\'un qui copierait tout votre profil de navigateur pourrait tester des codes PIN. Après 10 erreurs, la clé est effacée.' }),
-        h(doc, 'li', { text: 'Supprimer une clé ne demande pas de code PIN : l\'appareil devra être relié de nouveau depuis Synco.' }),
-      ),
-    ),
+    compact
+      ? h(doc, 'section', { class: 'card' },
+          h(doc, 'p', { class: 'muted', text: 'La clé reste dans l\'extension, protégée par votre code PIN, et n\'est jamais envoyée à Synco. Après 10 erreurs de PIN, elle est effacée.' }),
+          handlers.openFull ? h(doc, 'button', { text: 'Plus d\'informations et réglages', attrs: { type: 'button' }, on: { click: handlers.openFull } }) : null,
+        )
+      : h(doc, 'section', { class: 'card' },
+          h(doc, 'h2', { text: 'À savoir' }),
+          h(doc, 'ul', {},
+            h(doc, 'li', { text: 'Cette extension garde une clé locale par appareil, protégée par votre code PIN. Elle n\'est jamais envoyée à Synco.' }),
+            h(doc, 'li', { text: 'Ce n\'est pas un gestionnaire de passkeys : elle ne répond à aucun autre site que Synco.' }),
+            h(doc, 'li', { text: 'La clé n\'est pas protégée par du matériel : quelqu\'un qui copierait tout votre profil de navigateur pourrait tester des codes PIN. Après 10 erreurs, la clé est effacée.' }),
+            h(doc, 'li', { text: 'Supprimer une clé ne demande pas de code PIN : l\'appareil devra être relié de nouveau depuis Synco.' }),
+          ),
+        ),
     dialog,
   );
 }

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { fromB64 } from '../src/vault/encoding';
 import { recordKey } from '../src/vault/record';
 import { Router } from '../src/background/router';
-import { ALLOWED, BASE, EXT_ID, makeBackground, optionsSender, pageSender, promptSender, until } from './helpers/bgFixtures';
+import { ALLOWED, BASE, EXT_ID, makeBackground, optionsSender, pageSender, popupSender, promptSender, until } from './helpers/bgFixtures';
 import { DEVICE, DEVICE_2, FAST, ORIGIN, OTHER_ORIGIN, PIN, WRONG_PIN } from './helpers/vaultFixtures';
 
 type Resp = { id: number | null; ok: boolean; result?: any; error?: { code: string; message?: string; retryAfterSeconds?: number } };
@@ -268,9 +268,21 @@ describe('messages de l\'invite et de la page d\'options', () => {
     expect(await bg.vault.has(OTHER_ORIGIN, DEVICE_2)).toBe(true);
   });
 
+  test('popup de la barre d\'outils : mêmes droits que la page d\'options (liste, accès, suppression)', async () => {
+    const bg = makeBackground();
+    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    const list = (await bg.router.handle({ kind: 'internal', op: 'list' }, popupSender())) as any;
+    expect(list.result.entries).toHaveLength(1);
+    const hosts = (await bg.router.handle({ kind: 'internal', op: 'hostAccess' }, popupSender())) as any;
+    expect(hosts.ok).toBe(true);
+    await bg.router.handle({ kind: 'internal', op: 'remove', origin: ORIGIN, deviceId: DEVICE }, popupSender());
+    expect(await bg.vault.has(ORIGIN, DEVICE)).toBe(false);
+  });
+
   test.each([
     ['page Synco légitime', pageSender()],
     ['page web à l\'URL imitée', { id: EXT_ID, url: 'https://evil.example/options.html', frameId: 0, tab: { id: 1 } }],
+    ['page web imitant le popup', { id: EXT_ID, url: 'https://evil.example/popup.html', frameId: 0, tab: { id: 1 } }],
     ['page d\'invite du PIN', promptSender()],
     ['autre extension', optionsSender({ id: 'autre' })],
   ])('opérations internes refusées : %s', async (_n, sender) => {
