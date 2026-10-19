@@ -60,12 +60,16 @@ for (const targetName of ['chrome', 'firefox']) {
     sourcemap: false,
     legalComments: 'none',
     // Liste blanche du mode de build, aussi injectée dans le code : le worker la revalide sur `sender`.
-    define: { __SYNCO_ORIGINS__: JSON.stringify(origins) },
+    define: { __SYNCO_ORIGINS__: JSON.stringify(origins), __SYNCO_DEV__: String(mode === 'dev') },
     logLevel: 'warning',
   });
 
   if (mode === 'prod') {
-    for (const file of listFiles(outdir)) assertNoLocalOrigins(readFileSync(file, 'utf8'), file);
+    for (const file of listFiles(outdir)) {
+      const text = readFileSync(file, 'utf8');
+      assertNoLocalOrigins(text, file);
+      if (text.includes('syncoDebug')) throw new Error(`${file} : le diagnostic de développement ne doit pas figurer en production`);
+    }
   }
   console.log(`dist/${targetName} (${mode}) : ${origins.join(', ')}`);
 }

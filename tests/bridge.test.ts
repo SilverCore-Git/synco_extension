@@ -197,3 +197,39 @@ describe('réponses du worker vers la page', () => {
     expect((await call(port, { id: 3, op: 'status', args: {} })).error.message).toHaveLength(300);
   });
 });
+
+describe('diagnostic de développement', () => {
+  function withDebug() {
+    const win = new FakeWindow();
+    const labels: string[] = [];
+    startBridge({ win, send: async () => ({}), debug: (l) => labels.push(l) });
+    return { win, labels };
+  }
+
+  test('étiquettes fixes pour chaque issue du handshake, jamais de données', () => {
+    const { win, labels } = withDebug();
+    win.receive(hello, { source: {} });
+    win.receive(hello, { origin: 'https://evil.example' });
+    win.receive({ ...hello, extra: 1 });
+    win.receive({ ...hello, protocol: 2 });
+    win.receive(hello);
+    expect(labels).toEqual(['hello-refusé:source', 'hello-refusé:origine', 'hello-refusé:forme', 'hello-refusé:protocole', 'hello-accepté', 'ready-envoyé']);
+  });
+
+  test('un message étranger à Synco n\'est pas signalé', () => {
+    const { win, labels } = withDebug();
+    win.receive({ type: 'autre' }, { source: {} });
+    win.receive('texte');
+    expect(labels).toEqual([]);
+  });
+
+  test('échec de l\'envoi du canal : étiquette d\'erreur (nom seulement) et le pont continue', () => {
+    const { win, labels } = withDebug();
+    win.postMessage = () => {
+      throw new DOMException('détail interne', 'DataCloneError');
+    };
+    win.receive(hello);
+    expect(labels).toEqual(['hello-accepté', 'ready-erreur:DataCloneError']);
+    expect(JSON.stringify(labels)).not.toContain('détail interne');
+  });
+});

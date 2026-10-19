@@ -21,6 +21,8 @@ export interface BridgeDeps {
   createChannel?: () => MessageChannel;
   /** Nombre maximal de canaux ouverts : le plus ancien est fermé au-delà. */
   maxPorts?: number;
+  /** Diagnostic du build de développement (jamais en production) : étiquettes sans aucune donnée. */
+  debug?: (label: string) => void;
 }
 
 const CODES: readonly ErrorCode[] = [
@@ -50,23 +52,43 @@ export function startBridge(deps: BridgeDeps): void {
   const ports: MessagePort[] = [];
   const maxPorts = deps.maxPorts ?? 8;
 
+  const debug = deps.debug ?? (() => undefined);
+
   win.addEventListener('message', (event) => {
-    if (event.source !== win || event.origin !== win.location.origin) return;
     const d = event.data;
+    const isHello = isPlain(d) && d.source === 'synco-page' && d.type === 'hello';
+    if (event.source !== win) {
+      if (isHello) debug('hello-refusé:source');
+      return;
+    }
+    if (event.origin !== win.location.origin) {
+      if (isHello) debug('hello-refusé:origine');
+      return;
+    }
     if (!isPlain(d) || d.source !== 'synco-page' || d.type !== 'hello') return;
-    if (Object.keys(d).length !== 3 || !('protocol' in d)) return;
+    if (Object.keys(d).length !== 3 || !('protocol' in d)) {
+      debug('hello-refusé:forme');
+      return;
+    }
 
     if (d.protocol !== PROTOCOL_VERSION) {
+      debug('hello-refusé:protocole');
       win.postMessage({ source: 'synco-extension', type: 'unsupported', protocol: PROTOCOL_VERSION }, win.location.origin, []);
       return;
     }
 
-    const channel = (deps.createChannel ?? (() => new MessageChannel()))();
-    const port = channel.port1;
-    port.onmessage = (e: MessageEvent) => void handleRequest(port, e.data);
-    ports.push(port);
-    while (ports.length > maxPorts) ports.shift()?.close();
-    win.postMessage({ source: 'synco-extension', type: 'ready', protocol: PROTOCOL_VERSION }, win.location.origin, [channel.port2]);
+    debug('hello-accepté');
+    try {
+      const channel = (deps.createChannel ?? (() => new MessageChannel()))();
+      const port = channel.port1;
+      port.onmessage = (e: MessageEvent) => void handleRequest(port, e.data);
+      ports.push(port);
+      while (ports.length > maxPorts) ports.shift()?.close();
+      win.postMessage({ source: 'synco-extension', type: 'ready', protocol: PROTOCOL_VERSION }, win.location.origin, [channel.port2]);
+      debug('ready-envoyé');
+    } catch (e) {
+      debug(`ready-erreur:${e instanceof Error ? e.name : 'inconnue'}`);
+    }
   });
 
   async function handleRequest(port: MessagePort, data: unknown): Promise<void> {
