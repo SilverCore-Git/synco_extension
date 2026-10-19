@@ -78,7 +78,9 @@ export type ParseResult = { ok: true; request: Request } | { ok: false; id: numb
 const isPlainObject = (v: unknown): v is Record<string, unknown> => {
   if (typeof v !== 'object' || v === null || Array.isArray(v)) return false;
   const proto = Object.getPrototypeOf(v);
-  return proto === Object.prototype || proto === null;
+  // `Object.prototype` d'un autre contexte (Firefox : content script, page) n'est pas `===` au nôtre : on reconnaît
+  // un objet simple à ce que son prototype est lui-même la racine de la chaîne. Une instance de classe est refusée.
+  return proto === null || Object.getPrototypeOf(proto) === null;
 };
 
 const hasOnly = (o: Record<string, unknown>, keys: readonly string[]) =>

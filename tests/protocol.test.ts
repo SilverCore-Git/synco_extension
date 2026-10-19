@@ -82,6 +82,13 @@ describe('requêtes de la page : validation stricte', () => {
     refused(new Evil());
   });
 
+  test('objet simple créé dans un autre contexte (autre Object.prototype) accepté', () => {
+    const otherRealmProto = Object.create(null); // racine de chaîne distincte de notre Object.prototype
+    const req = Object.assign(Object.create(otherRealmProto), { id: 1, op: 'status', args: Object.create(otherRealmProto) });
+    expect(Object.getPrototypeOf(req)).not.toBe(Object.prototype);
+    expect(parseRequest(req).ok).toBe(true);
+  });
+
   test('la requête retournée est reconstruite : rien d\'imprévu ne la traverse', () => {
     const input = { id: 1, op: 'load', args: { deviceId: DEVICE, reason: 'x' } };
     const out = ok(input);
