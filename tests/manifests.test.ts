@@ -111,6 +111,9 @@ describe.each(combos)('manifeste %s (%s)', (targetName, mode) => {
       const gecko = m.browser_specific_settings.gecko;
       expect(gecko.id).toMatch(/^[a-zA-Z0-9-._]*@[a-zA-Z0-9-._]+$/);
       expect(gecko.data_collection_permissions.required).toEqual(['none']);
+      // data_collection_permissions n'est reconnu qu'à partir de Firefox 140 (bureau) et 142 (Android) : addons-linter.
+      expect(parseFloat(gecko.strict_min_version)).toBeGreaterThanOrEqual(140);
+      expect(parseFloat(m.browser_specific_settings.gecko_android.strict_min_version)).toBeGreaterThanOrEqual(142);
     }
   });
 });
