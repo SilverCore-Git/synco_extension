@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { groupEntries, OptionsModel, type OptionsBackend, type OptionsState } from '../src/ui/options/model';
-import { renderOptions, type OptionsHandlers } from '../src/ui/options/view';
+import { renderApp } from '../src/ui/app';
+import type { Surface, UiHandlers, UiState } from '../src/ui/modules';
 import type { VaultEntry } from '../src/vault/vault';
 import { asEl, buttonByText, fakeDoc } from './helpers/fakeDom';
 import { DEVICE, DEVICE_2, ORIGIN, OTHER_ORIGIN } from './helpers/vaultFixtures';
@@ -34,7 +35,7 @@ function backend(over: Partial<OptionsBackend> & { entries?: VaultEntry[]; allow
   return { b, calls, state, broad };
 }
 
-const noop: OptionsHandlers = { grantAccess() {}, askRemove() {}, cancelRemove() {}, confirmRemove() {} };
+const noop: UiHandlers = { grantAccess() {}, askRemove() {}, cancelRemove() {}, confirmRemove() {} };
 
 describe('modèle de la page d\'options', () => {
   test('chargement : état prêt, groupes par origine, origines inactives en dernier', async () => {
@@ -161,16 +162,19 @@ describe('modèle de la page d\'options', () => {
   });
 });
 
-describe('vue de la page d\'options', () => {
+
+describe('modules : coffre et actions de page', () => {
   const state = (over: Partial<OptionsState> = {}): OptionsState => ({
     status: 'ready', error: null, notice: null, version: '1.2.3',
     hosts: [{ origin: ORIGIN, granted: true }], broad: false, groups: groupEntries([entry()], [ORIGIN]), confirm: null, busy: false, ...over,
   });
-  const render = (s: OptionsState, h = noop) => asEl(renderOptions(fakeDoc(), s, h, NOW));
+  const ui = (over: Partial<OptionsState> = {}, draft: UiState['draft'] = null): UiState => ({ options: state(over), draft });
+  const render = (s: UiState, h: UiHandlers = noop, surface: Surface = 'options', active: string | null = 'vault') =>
+    asEl(renderApp({ doc: fakeDoc(), surface, state: s, handlers: h, version: '1.2.3', active, onSelect() {}, now: NOW }));
 
-  test('état, version, accès au site et clés s\'affichent en français', () => {
-    const t = render(state()).textContent;
-    expect(t).toContain('Version 1.2.3');
+  test('coffre : état, version, accès au site et clés s\'affichent en français', () => {
+    const t = render(ui()).textContent;
+    expect(t).toContain('v1.2.3');
     expect(t).toContain('Accès accordé');
     expect(t).toContain('Appareil 3f2b8c1e…');
     expect(t).toContain('Prêt');
@@ -179,46 +183,52 @@ describe('vue de la page d\'options', () => {
     expect(t).toContain('pas protégée par du matériel');
   });
 
-  test('accès refusé : bouton « Accorder l\'accès » relié au gestionnaire', () => {
+  test('accès refusé : bouton « Accorder l\'accès » relié au gestionnaire, pastille ! sur l\'onglet', () => {
     let granted = 0;
-    const root = render(state({ hosts: [{ origin: ORIGIN, granted: false }] }), { ...noop, grantAccess: () => { granted++; } });
+    const root = render(ui({ hosts: [{ origin: ORIGIN, granted: false }] }), { ...noop, grantAccess: () => { granted++; } });
     expect(root.textContent).toContain('Accès refusé');
     buttonByText(root, 'Accorder l\'accès').click();
     expect(granted).toBe(1);
-    expect(render(state()).findAll((e) => e.textContent === 'Accorder l\'accès')).toEqual([]);
+    expect(root.findAll((e) => e.getAttribute('class')?.startsWith('tab-badge') === true).map((e) => e.textContent)).toContain('!');
+    expect(render(ui()).findAll((e) => e.textContent === 'Accorder l\'accès')).toEqual([]);
   });
 
-  test('popup (mode compact) : même contenu utile, limites résumées, accès aux réglages complets', () => {
+  test('popup : contenu utile en version compacte, limites résumées, bouton vers les réglages complets', () => {
     let opened = 0;
-    const root = asEl(renderOptions(fakeDoc(), state(), { ...noop, openFull: () => { opened++; } }, NOW, true));
-    expect(root.getAttribute('class')).toBe('options compact');
+    const root = render(ui(), { ...noop, openFull: () => { opened++; } }, 'popup');
     expect(root.textContent).toContain('Accès accordé');
     expect(root.textContent).toContain('Appareil 3f2b8c1e…');
     expect(root.textContent).toContain('Après 10 erreurs de PIN');
     expect(root.textContent).not.toContain('pas un gestionnaire de passkeys'); // détail réservé à la page complète
-    buttonByText(root, 'Plus d\'informations et réglages').click();
+    root.findAll((e) => e.tagName === 'button' && e.getAttribute('aria-label') === 'Ouvrir tous les réglages')[0]!.click();
     expect(opened).toBe(1);
     // sans gestionnaire, pas de bouton orphelin
-    expect(asEl(renderOptions(fakeDoc(), state(), noop, NOW, true)).findAll((e) => e.textContent.startsWith('Plus d'))).toEqual([]);
+    expect(render(ui(), noop, 'popup').findAll((e) => e.getAttribute('aria-label') === 'Ouvrir tous les réglages')).toEqual([]);
   });
 
-  test('page complète : carte « tous les sites » avec explications honnêtes ; absente du popup', () => {
+  test('actions de page : accès à tous les sites avec explications honnêtes, absent du popup', () => {
     let toggled = 0;
-    const full = render(state(), { ...noop, toggleBroad: () => { toggled++; } });
+    const full = render(ui(), { ...noop, toggleBroad: () => { toggled++; } }, 'options', 'tasks');
     expect(full.textContent).toContain('Actions de page sur tous les sites');
     expect(full.textContent).toContain('jamais demandé à l\'installation');
     expect(full.textContent).toContain('ne donne jamais accès au coffre');
     buttonByText(full, 'Autoriser tous les sites').click();
     expect(toggled).toBe(1);
-    const granted = render(state({ broad: true }), { ...noop, toggleBroad: () => { toggled++; } });
+    const granted = render(ui({ broad: true }), { ...noop, toggleBroad: () => { toggled++; } }, 'options', 'tasks');
     expect(granted.textContent).toContain('Accès à tous les sites accordé');
     buttonByText(granted, 'Retirer l\'accès à tous les sites').click();
     expect(toggled).toBe(2);
-    expect(asEl(renderOptions(fakeDoc(), state(), { ...noop, toggleBroad: () => {} }, NOW, true)).textContent).not.toContain('tous les sites');
+    expect(render(ui(), { ...noop, toggleBroad: () => {} }, 'popup', 'tasks').textContent).not.toContain('tous les sites');
   });
 
-  test('aucune clé : message explicite', () => {
-    expect(render(state({ groups: [] })).textContent).toContain('Aucune clé n\'est enregistrée');
+  test('aucune clé : état vide explicite', () => {
+    expect(render(ui({ groups: [] })).textContent).toContain('Aucune clé enregistrée');
+  });
+
+  test('chargement : barres de chargement, pas de texte qui saute', () => {
+    const root = render(ui({ status: 'loading', hosts: [], groups: [] }));
+    expect(root.findAll((e) => e.getAttribute('class') === 'skeleton').length).toBeGreaterThan(0);
+    expect(root.getAttribute('class')).toBe('shell');
   });
 
   test('états de clé : verrouillée, échecs, illisible, origine inactive', () => {
@@ -228,7 +238,7 @@ describe('vue de la page d\'options', () => {
       entry({ deviceId: '33333333-3333-3333-3333-333333333333', readable: false, createdAt: null, failures: null }),
       entry({ origin: OTHER_ORIGIN, deviceId: '44444444-4444-4444-4444-444444444444' }),
     ];
-    const t = render(state({ groups: groupEntries(entries, [ORIGIN]) })).textContent;
+    const t = render(ui({ groups: groupEntries(entries, [ORIGIN]) })).textContent;
     expect(t).toContain('Verrouillé 1 min 30 s');
     expect(t).toContain('2 échecs de PIN');
     expect(t).toContain('Illisible');
@@ -238,14 +248,14 @@ describe('vue de la page d\'options', () => {
 
   test('« Supprimer » ouvre la confirmation maison, sans dialogue natif', () => {
     const asked: string[] = [];
-    const root = render(state(), { ...noop, askRemove: (o: string, d: string) => { asked.push(`${o}|${d}`); } });
+    const root = render(ui(), { ...noop, askRemove: (o: string, d: string) => { asked.push(`${o}|${d}`); } });
     buttonByText(root, 'Supprimer').click();
     expect(asked).toEqual([`${ORIGIN}|${DEVICE}`]);
   });
 
   test('fenêtre de confirmation : rôle dialog, texte clair, Annuler en premier focus, actions reliées', () => {
     const log: string[] = [];
-    const root = render(state({ confirm: entry() }), { ...noop, cancelRemove: () => { log.push('annuler'); }, confirmRemove: () => { log.push('supprimer'); } });
+    const root = render(ui({ confirm: entry() }), { ...noop, cancelRemove: () => { log.push('annuler'); }, confirmRemove: () => { log.push('supprimer'); } });
     const dialog = root.findAll((e) => e.getAttribute('role') === 'dialog')[0]!;
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(dialog.textContent).toContain('Supprimer cette clé ?');
@@ -260,19 +270,19 @@ describe('vue de la page d\'options', () => {
   });
 
   test('suppression en cours : bouton désactivé', () => {
-    const root = render(state({ confirm: entry(), busy: true }));
+    const root = render(ui({ confirm: entry(), busy: true }));
     expect(buttonByText(root, 'Suppression…').getAttribute('disabled')).toBe('');
   });
 
   test('erreur et notice : annoncées (alert / status)', () => {
-    const root = render(state({ error: 'Panne.', notice: 'Fait.' }));
+    const root = render(ui({ error: 'Panne.', notice: 'Fait.' }));
     expect(root.findAll((e) => e.getAttribute('role') === 'alert')[0]!.textContent).toBe('Panne.');
     expect(root.findAll((e) => e.getAttribute('role') === 'status')[0]!.textContent).toBe('Fait.');
   });
 
   test('données hostiles venant du stockage : insérées en texte, jamais en HTML', () => {
     const hostile = '<img src=x onerror=alert(1)>';
-    const root = render(state({ hosts: [{ origin: hostile, granted: false }], groups: [{ origin: hostile, active: false, entries: [entry({ origin: hostile, deviceId: hostile })] }], notice: hostile, error: hostile, confirm: entry({ origin: hostile, deviceId: hostile }) }));
+    const root = render(ui({ hosts: [{ origin: hostile, granted: false }], groups: [{ origin: hostile, active: false, entries: [entry({ origin: hostile, deviceId: hostile })] }], notice: hostile, error: hostile, confirm: entry({ origin: hostile, deviceId: hostile }) }));
     expect(root.textContent).toContain(hostile);
     expect(root.findAll((e) => ['img', 'script', 'iframe', 'a'].includes(e.tagName))).toEqual([]);
   });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { TaskDraft } from '../src/page-actions/contract';
-import { renderDraftCard } from '../src/ui/popup/draftView';
+import { renderDraftCard } from '../src/ui/modules/tasks';
 import { asEl, buttonByText, fakeDoc } from './helpers/fakeDom';
 
 const draft = (over: Partial<TaskDraft> = {}): TaskDraft => ({

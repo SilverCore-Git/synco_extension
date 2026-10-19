@@ -40,6 +40,27 @@ describe('interface : garde-fous statiques', () => {
   });
 });
 
+describe('modules de l\'interface : isolation', () => {
+  const modules = walk('src/ui/modules').filter((f) => f.endsWith('.ts'));
+  test('les modules sont analysés', () => {
+    expect(modules).toContain('src/ui/modules/vault.ts');
+    expect(modules).toContain('src/ui/modules/tasks.ts');
+  });
+  test('seul le module coffre peut importer le coffre ; les autres n\'en ont aucune connaissance, même en types', () => {
+    for (const f of modules.filter((m) => !m.endsWith('/vault.ts'))) {
+      expect({ f, hit: /from\s+['"][^'"]*\/(vault|background)\//.test(read(f)) }).toEqual({ f, hit: false });
+    }
+  });
+  test('le module coffre n\'importe le coffre qu\'en types', () => {
+    for (const line of read('src/ui/modules/vault.ts').split('\n')) {
+      if (/^\s*import\b/.test(line) && /\/vault\//.test(line)) expect(line).toMatch(/^\s*import type\b/);
+    }
+  });
+  test('un module ne dépend d\'aucun autre module (ils ne communiquent que par UiState et UiHandlers)', () => {
+    for (const f of modules) expect({ f, hit: /from\s+['"]\.\/(vault|tasks)['"]|from\s+['"]\.\.\/modules\//.test(read(f)) }).toEqual({ f, hit: false });
+  });
+});
+
 describe('pages HTML : CSP stricte (script-src \'self\')', () => {
   test.each(htmlFiles)('%s : aucun script ni style en ligne, aucune ressource distante', (file) => {
     const html = read(file);
@@ -71,12 +92,23 @@ describe('pages HTML : CSP stricte (script-src \'self\')', () => {
 
 describe('thème', () => {
   const css = read('src/ui/ui.css');
-  test('couleur primaire Synco, thème clair et sombre, focus visible', () => {
+  test('couleur primaire Synco, jetons de l\'application, thème clair, focus visible', () => {
     expect(css).toContain('--primary: #16ac77');
-    expect(css).toContain('prefers-color-scheme: dark');
+    for (const token of ['--bg:', '--bg2:', '--text:', '--text2:', '--border-color:']) expect(css).toContain(token);
+    expect(css).toContain('prefers-color-scheme: light');
     expect(css).toContain(':focus-visible');
+    expect(css).toContain('prefers-reduced-motion');
+    // `display:flex` des bandeaux ne doit pas annuler l'attribut hidden (la fenêtre du PIN s'en sert pour ses états).
+    expect(css).toContain('[hidden] { display: none !important; }');
   });
   test('aucune ressource distante ni @import', () => {
     expect(css).not.toMatch(/@import|url\(\s*['"]?https?:|\/\/fonts\./);
+  });
+  test('chaque page charge les icônes avant la feuille de style', () => {
+    for (const file of htmlFiles) {
+      const html = read(file);
+      expect(html.indexOf('href="icons.css"')).toBeGreaterThan(-1);
+      expect(html.indexOf('href="icons.css"')).toBeLessThan(html.indexOf('href="ui.css"'));
+    }
   });
 });

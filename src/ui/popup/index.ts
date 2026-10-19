@@ -1,57 +1,36 @@
-import { dismissDraft } from '../../page-actions/actions';
-import { DraftStore, type SessionArea } from '../../page-actions/store';
 import { api } from '../../shared/api';
-import { mount } from '../dom';
+import { createDraftBackend } from '../draftBackend';
+import type { UiHandlers } from '../modules';
 import { createOptionsBackend } from '../options/backend';
 import { OptionsModel } from '../options/model';
-import { renderOptions } from '../options/view';
-import { renderDraftCard } from './draftView';
+import { runApp } from '../runApp';
 
-// Popup de la barre d'outils : brouillon de tâche en attente, puis le contenu de la page d'options en version compacte.
-const root = document.getElementById('app')!;
-const draftSlot = document.createElement('div');
-const optionsSlot = document.createElement('div');
-root.append(draftSlot, optionsSlot);
-
-const store = new DraftStore(api.storage.session as SessionArea);
+// Popup de la barre d'outils : les mêmes modules que la page d'options, en version compacte. S'il y a un brouillon de
+// tâche en attente, c'est l'onglet qui s'ouvre (pastille).
 const model = new OptionsModel(createOptionsBackend());
+const drafts = createDraftBackend();
 
-async function showDraft(): Promise<void> {
-  const draft = await store.load().catch(() => null);
-  mount(
-    draftSlot,
-    ...(draft
-      ? [
-          renderDraftCard(document, draft, {
-            dismiss: () => {
-              void dismissDraft({ store, host: { setBadge: (text) => api.action.setBadgeText({ text }) } }).then(showDraft);
-            },
-          }),
-        ]
-      : []),
-  );
-}
-
-const handlers = {
+const handlers: UiHandlers = {
   grantAccess: () => void model.grantAccess(), // premier appel du gestionnaire : le geste de l'utilisateur est conservé
-  askRemove: (origin: string, deviceId: string) => model.askRemove(origin, deviceId),
+  askRemove: (origin, deviceId) => model.askRemove(origin, deviceId),
   cancelRemove: () => model.cancelRemove(),
   confirmRemove: () => void model.confirmRemove(),
+  dismissDraft: () => void drafts.dismiss().then(loadDraft),
   openFull: () => {
     void api.runtime.openOptionsPage();
     window.close();
   },
 };
 
-model.subscribe((state) => {
-  const page = renderOptions(document, state, handlers, Date.now(), true);
-  mount(optionsSlot, page);
-  page.querySelector<HTMLElement>('[data-autofocus]')?.focus();
-});
+const app = runApp({ root: document.getElementById('app')!, surface: 'popup', model, handlers, initialActive: null });
+
+async function loadDraft(): Promise<void> {
+  app.setDraft(await drafts.load());
+}
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && model.current.confirm && !model.current.busy) model.cancelRemove();
 });
 
-void showDraft();
+void loadDraft();
 void model.refresh();

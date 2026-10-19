@@ -8,6 +8,7 @@ export type Child = string | Node | null | false | undefined;
 const ALLOWED_ATTRS = new Set([
   'id', 'class', 'type', 'role', 'title', 'disabled', 'hidden', 'lang', 'tabindex', 'autofocus',
   'aria-label', 'aria-live', 'aria-modal', 'aria-labelledby', 'aria-describedby', 'aria-hidden', 'aria-busy', 'aria-disabled',
+  'aria-selected', 'aria-controls', 'aria-current',
 ]);
 
 export interface Props {
