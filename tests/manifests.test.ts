@@ -73,7 +73,9 @@ describe.each(combos)('manifeste %s (%s)', (targetName, mode) => {
   test('aucune permission large requise à l\'installation, pas de externally_connectable', () => {
     const text = JSON.stringify(m);
     expect(text).not.toContain('<all_urls>');
-    expect(m.host_permissions).toBeUndefined();
+    // Accès au site : uniquement les origines exactes de la liste blanche, jamais d'autre site.
+    expect(m.host_permissions).toEqual(originsFor(config, mode).map((o: string) => `${o}/*`));
+    expect(m.optional_host_permissions).toBeUndefined();
     expect(m.externally_connectable).toBeUndefined();
     expect(m.permissions).not.toContain('tabs');
     expect(m.permissions).not.toContain('offscreen');

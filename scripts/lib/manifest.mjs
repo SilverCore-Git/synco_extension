@@ -43,6 +43,10 @@ export function buildManifest({ base, target, targetName, mode, version, origins
     matches: origins.map((o) => `${o}/*`),
   }));
 
+  // Accès limité aux origines exactes de la liste blanche, jamais à d'autres sites. Firefox MV3 laisse
+  // l'utilisateur accorder ou retirer ces accès ; la page d'options le détecte et le demande (permissions.request).
+  manifest.host_permissions = origins.map((o) => `${o}/*`);
+
   if (mode === 'dev') {
     manifest.name = `${manifest.name} (dev)`;
     // `version_name` n'existe que pour Chrome ; Firefox signale la clé comme inconnue.
