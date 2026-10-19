@@ -59,6 +59,8 @@ for (const targetName of ['chrome', 'firefox']) {
     minify: false,
     sourcemap: false,
     legalComments: 'none',
+    // Liste blanche du mode de build, aussi injectée dans le code : le worker la revalide sur `sender`.
+    define: { __SYNCO_ORIGINS__: JSON.stringify(origins) },
     logLevel: 'warning',
   });
 
