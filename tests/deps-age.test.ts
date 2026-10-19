@@ -11,6 +11,18 @@ describe('politique de dépendances', () => {
     },
   );
 
+  test('surcharges (overrides, resolutions, imbriquées) : versions exactes obligatoires', () => {
+    expect(findUnpinned({ overrides: { undici: '7.30.0' } })).toEqual([]);
+    expect(findUnpinned({ overrides: { undici: '^7.30.0' } })).toHaveLength(1);
+    expect(findUnpinned({ overrides: { cheerio: { undici: '>=7' } } })).toEqual([{ section: 'overrides', name: 'cheerio > undici', range: '>=7' }]);
+    expect(findUnpinned({ resolutions: { a: 'latest', b: '1.0.0' } })).toHaveLength(1);
+    expect(findUnpinned({ overrides: { a: 1 } })).toHaveLength(1);
+  });
+
+  test('le package.json réel est entièrement épinglé', () => {
+    expect(findUnpinned(require('../package.json'))).toEqual([]);
+  });
+
   test('accepte les versions exactes', () => {
     expect(findUnpinned({ devDependencies: { x: '1.2.3', y: '0.0.1-rc.1' } })).toEqual([]);
   });

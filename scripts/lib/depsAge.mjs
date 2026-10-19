@@ -7,7 +7,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Une version exacte, sans opérateur, sans plage, sans étiquette (`^`, `~`, `*`, `latest`, `>=`…). */
 export const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
-/** Retourne la liste des déclarations de package.json qui ne sont pas des versions exactes. */
+/** Retourne la liste des déclarations de package.json qui ne sont pas des versions exactes (surcharges comprises). */
 export function findUnpinned(pkg) {
   const bad = [];
   for (const section of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
@@ -15,6 +15,16 @@ export function findUnpinned(pkg) {
       if (!EXACT_VERSION.test(range)) bad.push({ section, name, range });
     }
   }
+  // `overrides` / `resolutions` peuvent être imbriqués ({ paquet: { sous-paquet: version } }) : on les aplatit.
+  const walk = (section, obj, path) => {
+    for (const [name, value] of Object.entries(obj ?? {})) {
+      const full = path ? `${path} > ${name}` : name;
+      if (value !== null && typeof value === 'object') walk(section, value, full);
+      else if (typeof value !== 'string' || !EXACT_VERSION.test(value)) bad.push({ section, name: full, range: String(value) });
+    }
+  };
+  walk('overrides', pkg.overrides, '');
+  walk('resolutions', pkg.resolutions, '');
   return bad;
 }
 
