@@ -18,4 +18,4 @@ Précisez la version de l'extension, le navigateur, et les étapes pour reprodui
 - Le second secret de l'extension (clé non extractable dans IndexedDB) n'est **pas du matériel** : copier tout le profil du navigateur donne les deux éléments. Le gain est l'isolation par rapport à l'origine de la page, pas la résistance au vol de profil.
 - Les chaînes JavaScript (messages JSON, base64) ne peuvent pas être effacées de la mémoire ; seuls les octets de clés (`Uint8Array`) le sont.
 
-Le modèle de menace complet sera dans `doc/` (phase P6).
+Modèle de menace complet (actifs, acteurs, menaces et risque restant) : [doc/16-coffre-extension.md](doc/16-coffre-extension.md).
