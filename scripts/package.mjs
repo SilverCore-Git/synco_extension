@@ -7,10 +7,11 @@
 // Usage : node scripts/package.mjs [--allow-dirty]   (à lancer sous Node, pas sous Bun)
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { lstatSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkPackage } from './lib/packageChecks.mjs';
+import { parseLsFilesStage, scanSourceFiles } from './lib/sourceArchive.mjs';
 import { createZip } from './lib/zip.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -31,11 +32,15 @@ if (dirty && !allowDirty) {
 
 execFileSync(process.execPath, [join(root, 'scripts/build.mjs'), '--prod'], { cwd: root, stdio: 'inherit' });
 
+/** Fichiers ordinaires seulement : un lien symbolique dans dist/ ferait embarquer un fichier extérieur. */
 function listFiles(dir, prefix = '') {
   return readdirSync(dir).flatMap((name) => {
     const full = join(dir, name);
     const rel = prefix ? `${prefix}/${name}` : name;
-    return statSync(full).isDirectory() ? listFiles(full, rel) : [rel];
+    const st = lstatSync(full);
+    if (st.isDirectory()) return listFiles(full, rel);
+    if (!st.isFile()) throw new Error(`fichier non ordinaire dans le paquet : ${rel}`);
+    return [rel];
   });
 }
 
@@ -59,9 +64,19 @@ for (const target of ['chrome', 'firefox']) {
 }
 if (failed) process.exit(1);
 
-// Source : uniquement les fichiers suivis par Git (le même état que le commit publié).
-const tracked = git('ls-files', '-z').toString('utf8').split('\0').filter(Boolean);
+// Source : uniquement les fichiers ordinaires suivis par Git (le même état que le commit publié).
+const { files: tracked, rejected } = parseLsFilesStage(git('ls-files', '-s', '-z').toString('utf8'));
+if (rejected.length > 0) {
+  console.error(`archive source refusée : entrées non ordinaires (lien symbolique, sous-module) :\n  - ${rejected.map((r) => `${r.path} (${r.mode})`).join('\n  - ')}`);
+  process.exit(1);
+}
 const sourceFiles = tracked.map((name) => ({ name, data: readFileSync(join(root, name)) }));
+// Même contrôle de secrets que le hook de commit, sur le contenu exact de l'archive (dépôt public).
+const leaks = scanSourceFiles(sourceFiles);
+if (leaks.length > 0) {
+  console.error(`archive source refusée : éléments sensibles :\n  - ${leaks.map((f) => `${f.file}${f.line ? `:${f.line}` : ''} [${f.rule}]`).join('\n  - ')}`);
+  process.exit(1);
+}
 const sourceName = `synco-extension-${version}-source.zip`;
 const source = createZip(sourceFiles);
 writeFileSync(join(dist, sourceName), source);
