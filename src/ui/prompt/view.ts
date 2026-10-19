@@ -1,5 +1,6 @@
 import { formatClock, formatDuration } from '../format';
 import { h } from '../dom';
+import { banner, icon, tile, wordmark } from '../kit';
 import type { PromptView } from './controller';
 
 export interface PromptHandlers {
@@ -23,21 +24,19 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     doc,
     'section',
     { class: 'requester', attrs: { 'aria-labelledby': 'requester-label' } },
-    h(doc, 'div', { class: 'label', text: 'Demandé par', attrs: { id: 'requester-label' } }),
-    originEl,
+    tile(doc, 'shield-lock-fill', 'primary'),
+    h(doc, 'div', { class: 'who' }, h(doc, 'div', { class: 'label', text: 'Demandé par', attrs: { id: 'requester-label' } }), originEl),
     reasonEl,
   );
-  const replacing = h(doc, 'p', {
-    class: 'banner warn',
-    text: 'Un enregistrement existe déjà pour cet appareil : il sera remplacé.',
-  });
+  const replacing = banner(doc, 'warn', 'Un enregistrement existe déjà pour cet appareil : il sera remplacé.');
   const hint = h(doc, 'p', { class: 'muted' });
   const dots = h(doc, 'div', { class: 'dots', attrs: { role: 'img' } });
-  const error = h(doc, 'p', { class: 'banner error', attrs: { role: 'alert', 'aria-live': 'polite' } });
+  const errorText = h(doc, 'span');
+  const error = h(doc, 'p', { class: 'banner error', attrs: { role: 'alert', 'aria-live': 'polite' } }, icon(doc, 'x-circle-fill'), errorText);
 
   const keyButtons: HTMLButtonElement[] = [];
-  const key = (label: string, aria: string, onClick: () => void) => {
-    const b = h(doc, 'button', { text: label, attrs: { type: 'button', 'aria-label': aria }, on: { click: onClick } });
+  const key = (label: string, aria: string, onClick: () => void, cls?: string) => {
+    const b = h(doc, 'button', { ...(cls ? { class: cls } : {}), text: label, attrs: { type: 'button', 'aria-label': aria }, on: { click: onClick } });
     keyButtons.push(b);
     return b;
   };
@@ -46,26 +45,26 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     'div',
     { class: 'keypad', attrs: { role: 'group', 'aria-label': 'Pavé numérique' } },
     ...['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => key(d, `Chiffre ${d}`, () => handlers.press(d))),
-    key('Effacer', 'Tout effacer', handlers.clear),
+    key('Effacer', 'Tout effacer', handlers.clear, 'aux'),
     key('0', 'Chiffre 0', () => handlers.press('0')),
-    key('⌫', 'Supprimer le dernier chiffre', handlers.backspace),
+    key('⌫', 'Supprimer le dernier chiffre', handlers.backspace, 'aux'),
   );
 
-  const cancelBtn = h(doc, 'button', { text: 'Annuler', attrs: { type: 'button' }, on: { click: handlers.cancel } });
+  const cancelBtn = h(doc, 'button', { class: 'default', text: 'Annuler', attrs: { type: 'button' }, on: { click: handlers.cancel } });
   const submitBtn = h(doc, 'button', { class: 'primary', attrs: { type: 'button' }, on: { click: handlers.submit } });
-  const actions = h(doc, 'div', { class: 'actions' }, cancelBtn, submitBtn);
+  const actions = h(doc, 'div', { class: 'actions fill' }, cancelBtn, submitBtn);
 
   const countdown = h(doc, 'p', { class: 'muted countdown' });
-  const limits = h(doc, 'p', {
-    class: 'muted',
+  const limits = h(doc, 'p', { class: 'fine' }, icon(doc, 'lock-fill'), h(doc, 'span', {
     text: 'Ce code est vérifié par l\'extension, pas par le site. Après 10 erreurs, la clé de cet appareil est effacée.',
-  });
+  }));
   const form = h(doc, 'div', {}, hint, dots, keypad, actions, countdown, limits);
 
   const closeBtn = h(doc, 'button', { class: 'primary', text: 'Fermer', attrs: { type: 'button' }, on: { click: handlers.close } });
-  const closeRow = h(doc, 'div', { class: 'actions' }, closeBtn);
+  const closeRow = h(doc, 'div', { class: 'actions fill' }, closeBtn);
 
-  const root = h(doc, 'main', { class: 'prompt', attrs: { 'aria-live': 'polite' } }, title, requester, replacing, error, form, closeRow);
+  const head = h(doc, 'header', { class: 'prompt-head' }, wordmark(doc), h(doc, 'span', { class: 'chip chip-off', text: 'Coffre de clés' }));
+  const root = h(doc, 'main', { class: 'prompt', attrs: { 'aria-live': 'polite' } }, head, title, requester, replacing, error, form, closeRow);
 
   function update(view: PromptView): void {
     const showForm = view.phase === 'enter' || view.phase === 'confirm' || view.phase === 'verifying';
@@ -78,7 +77,7 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     replacing.hidden = !(view.replacing && view.mode === 'create' && view.phase !== 'verifying');
 
     error.hidden = view.error === null;
-    error.textContent = view.error ?? '';
+    errorText.textContent = view.error ?? '';
 
     form.hidden = !showForm;
     closeRow.hidden = showForm || view.phase === 'loading' || view.phase === 'done';
@@ -94,6 +93,7 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
 
     for (const b of keyButtons) b.disabled = !view.keypadEnabled;
     submitBtn.textContent = view.phase === 'verifying' ? 'Vérification…' : view.submitLabel;
+    submitBtn.setAttribute('class', view.phase === 'verifying' ? 'primary busy' : 'primary');
     submitBtn.disabled = !view.canSubmit;
     cancelBtn.disabled = false;
 
