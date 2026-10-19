@@ -1,0 +1,27 @@
+{
+  "name": "synco-extension",
+  "version": "0.1.0",
+  "description": "Extension Chrome et Firefox pour Synco : coffre de clés local et actions de page.",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SilverCore-Git/synco_extension.git"
+  },
+  "scripts": {
+    "setup": "git config core.hooksPath .githooks",
+    "check:secrets": "node scripts/check-secrets.mjs --all",
+    "check:deps": "node scripts/check-deps-age.mjs",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "build": "node scripts/build.mjs --prod",
+    "build:dev": "node scripts/build.mjs --dev",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "@types/chrome": "0.3.5",
+    "esbuild": "0.28.2",
+    "typescript": "6.0.3"
+  }
+}
