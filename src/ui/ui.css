@@ -1,0 +1,126 @@
+/* Thème Synco : couleur primaire #16ac77, clair et sombre selon le système. Aucun style en ligne ni police distante. */
+:root {
+  --primary: #16ac77;
+  --primary-strong: #0e8a5e;
+  --on-primary: #ffffff;
+  --bg: #f6f8f7;
+  --surface: #ffffff;
+  --text: #17211d;
+  --muted: #55645d;
+  --border: #d3dcd7;
+  --danger: #b42318;
+  --danger-bg: #fdecea;
+  --warn: #8a5a00;
+  --warn-bg: #fff4d6;
+  --ok-bg: #e4f6ee;
+  --focus: #0b6e4a;
+  --radius: 12px;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101513;
+    --surface: #18201d;
+    --text: #e8efeb;
+    --muted: #9fb0a8;
+    --border: #2c3833;
+    --primary-strong: #35c995;
+    --danger: #ff8f84;
+    --danger-bg: #3a1d1a;
+    --warn: #f2c15b;
+    --warn-bg: #352a10;
+    --ok-bg: #12301f;
+    --focus: #6ee2b4;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body { padding: 16px; }
+
+h1 { font-size: 1.25rem; margin: 0 0 4px; }
+h2 { font-size: 1.05rem; margin: 24px 0 8px; }
+p { margin: 8px 0; }
+.muted { color: var(--muted); font-size: 0.9rem; }
+
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 10px 14px;
+  min-height: 44px;
+}
+button:hover:not(:disabled) { border-color: var(--primary); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); font-weight: 600; }
+button.primary:hover:not(:disabled) { background: var(--primary-strong); border-color: var(--primary-strong); }
+button.danger { color: var(--danger); border-color: var(--danger); }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin: 12px 0;
+}
+
+/* ---- Fenêtre d'invite du PIN ---- */
+.prompt { max-width: 380px; margin: 0 auto; }
+
+.requester {
+  border: 2px solid var(--primary);
+  border-radius: var(--radius);
+  background: var(--ok-bg);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.requester .label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.requester .origin { font: 600 1.05rem ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+.reason { margin: 6px 0 0; font-style: italic; word-break: break-word; }
+
+.banner { border-radius: 10px; padding: 8px 10px; margin: 8px 0; font-size: 0.92rem; }
+.banner.warn { background: var(--warn-bg); color: var(--warn); }
+.banner.error { background: var(--danger-bg); color: var(--danger); }
+
+.dots { display: flex; justify-content: center; gap: 10px; min-height: 28px; margin: 14px 0; }
+.dot { width: 14px; height: 14px; border-radius: 50%; background: var(--primary); }
+.dots .placeholder { color: var(--muted); font-size: 0.9rem; align-self: center; }
+
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 12px; }
+.keypad button { font-size: 1.3rem; font-weight: 600; min-height: 56px; }
+
+.actions { display: flex; gap: 8px; }
+.actions button { flex: 1; }
+
+.countdown { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---- Page d'options ---- */
+.options { max-width: 760px; margin: 0 auto; }
+.row { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap; }
+.row .grow { flex: 1 1 260px; min-width: 0; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+.badge { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 0.8rem; }
+.badge.ok { background: var(--ok-bg); color: var(--primary-strong); }
+.badge.bad { background: var(--danger-bg); color: var(--danger); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+ul.plain { list-style: none; margin: 0; padding: 0; }
+ul.plain li { padding: 10px 0; border-top: 1px solid var(--border); }
+ul.plain li:first-child { border-top: 0; }
+
+/* Fenêtre de confirmation maison (aucun dialogue natif) */
+.overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.dialog { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); max-width: 440px; width: 100%; padding: 18px; }
+.dialog h2 { margin-top: 0; }
