@@ -5,7 +5,7 @@ Extension Chrome et Firefox pour [Synco](https://synco.one). Elle a deux rôles,
 1. **Coffre de clés** (`src/vault/`) : un type de coffre « extension » pour le chiffrement de bout en bout de Synco. Il ne répond **qu'aux origines Synco** de la liste blanche (correspondance exacte). Ce n'est pas un gestionnaire de passkeys : aucune interception de `navigator.credentials`, aucune réponse à d'autres sites.
 2. **Actions de page** (`src/page-actions/`) : intégrations au navigateur valables sur tous les sites (par exemple « Créer une tâche dans Synco » sur une sélection de texte). Ce module n'a jamais accès au coffre.
 
-> **État : phase P4 (actions de page, squelette).** Le coffre, le canal page ↔ extension, l'interface (fenêtre de saisie du PIN, popup, page d'options) et le squelette des actions de page (menu contextuel, [contrat de message](doc/page-actions.md)) sont en place. Rien n'est encore envoyé à Synco par les actions de page. Les paquets de publication arrivent ensuite.
+> **État : phase P5 (paquets).** Le coffre, le canal page ↔ extension, l'interface (fenêtre de saisie du PIN, popup, page d'options) et le squelette des actions de page (menu contextuel, [contrat de message](doc/page-actions.md)) sont en place. Rien n'est encore envoyé à Synco par les actions de page. Les paquets de publication (Chrome, Firefox, source pour l'AMO) se fabriquent avec `node scripts/package.mjs` ; la recette dans un vrai navigateur est dans [doc/recette-manuelle.md](doc/recette-manuelle.md).
 
 ## Origines autorisées
 
@@ -37,13 +37,23 @@ Charger en local : Chrome → `chrome://extensions` (mode développeur, « Charg
 ## Vérifications
 
 ```sh
-bun test                              # tests
-node node_modules/typescript/bin/tsc --noEmit   # types
-node scripts/check-secrets.mjs --all  # secrets dans les fichiers du dépôt
-node scripts/check-deps-age.mjs       # dépendances : versions exactes, publiées depuis ≥ 7 jours (réseau)
+bun test                                         # tests
+node node_modules/typescript/bin/tsc --noEmit    # types
+node scripts/check-secrets.mjs --all             # secrets dans les fichiers du dépôt
+node scripts/check-deps-age.mjs                  # dépendances : versions exactes, publiées depuis ≥ 7 jours (réseau)
+node scripts/lint-firefox.mjs                    # addons-linter (moteur de web-ext lint) sur le paquet Firefox
 ```
 
 Le dépôt est public : `bun run setup` active le hook `pre-commit` qui exécute le contrôle de secrets sur chaque commit.
+
+## Publier
+
+```sh
+node scripts/package.mjs     # → dist/*.zip (Chrome, Firefox, source) et dist/SHA256SUMS.txt
+```
+
+Procédure complète, reconstruction à l'identique pour les relecteurs de l'AMO et notes pour les stores :
+[doc/build-reproductible.md](doc/build-reproductible.md).
 
 ## Compatibilité
 
