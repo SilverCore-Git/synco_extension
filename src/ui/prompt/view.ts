@@ -1,6 +1,6 @@
 import { formatClock, formatDuration } from '../format';
 import { h } from '../dom';
-import { banner, icon, tile, wordmark } from '../kit';
+import { banner, icon, wordmark } from '../kit';
 import type { Phase, PromptView } from './controller';
 
 export interface PromptHandlers {
@@ -51,23 +51,14 @@ function createScene(doc: Document): { root: HTMLElement; set(state: SceneState)
 
 /**
  * Squelette stable (créé une fois) mis à jour à chaque changement d'état : le focus clavier n'est pas perdu.
- * Tout ce qui vient de la page web (origine, raison) est inséré en texte, jamais en HTML.
+ * Rien de ce que la page fournit (origine, raison) n'est affiché : l'origine est de toute façon l'une des adresses
+ * exactes de la liste blanche (une seule en production), donc ne renseigne pas l'utilisateur, et un texte de page
+ * dans une fenêtre de sécurité ne ferait qu'ouvrir la porte à l'hameçonnage.
  */
 export function createPromptView(doc: Document, handlers: PromptHandlers): { root: HTMLElement; update(view: PromptView): void } {
   const scene = createScene(doc);
   const title = h(doc, 'h1', { attrs: { id: 'title' } });
   const hint = h(doc, 'p', { class: 'hint' });
-
-  const originEl = h(doc, 'div', { class: 'origin' });
-  const reasonEl = h(doc, 'p', { class: 'reason' });
-  const requester = h(
-    doc,
-    'section',
-    { class: 'requester', attrs: { 'aria-labelledby': 'requester-label' } },
-    tile(doc, 'lock-fill', 'primary'),
-    h(doc, 'div', { class: 'who' }, h(doc, 'div', { class: 'label', text: 'Demandé par', attrs: { id: 'requester-label' } }), originEl),
-    reasonEl,
-  );
 
   const replacing = banner(doc, 'warn', 'Un enregistrement existe déjà pour cet appareil : il sera remplacé.');
   const errorText = h(doc, 'span');
@@ -105,7 +96,7 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
   const closeRow = h(doc, 'div', { class: 'actions fill' }, closeBtn);
 
   const head = h(doc, 'header', { class: 'prompt-head' }, wordmark(doc), h(doc, 'span', { class: 'chip chip-off', text: 'Coffre de clés' }));
-  const root = h(doc, 'main', { class: 'prompt', attrs: { 'aria-live': 'polite' } }, head, scene.root, h(doc, 'div', { class: 'heading' }, title, hint), requester, replacing, error, form, closeRow);
+  const root = h(doc, 'main', { class: 'prompt', attrs: { 'aria-live': 'polite' } }, head, scene.root, h(doc, 'div', { class: 'heading' }, title, hint), replacing, error, form, closeRow);
 
   function update(view: PromptView): void {
     const showForm = view.phase === 'enter' || view.phase === 'confirm' || view.phase === 'verifying';
@@ -115,10 +106,6 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     hint.textContent = view.hint;
     hint.hidden = view.hint === '';
 
-    requester.hidden = view.origin === null || view.phase === 'done';
-    originEl.textContent = view.origin ?? '';
-    reasonEl.hidden = view.reason === null;
-    reasonEl.textContent = view.reason === null ? '' : `« ${view.reason} »`;
     replacing.hidden = !(view.replacing && view.mode === 'create' && view.phase !== 'verifying' && view.phase !== 'done');
 
     error.hidden = view.error === null;

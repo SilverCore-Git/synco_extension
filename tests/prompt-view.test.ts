@@ -21,22 +21,14 @@ function make() {
 const all = (root: FakeElement) => root.textContent;
 
 describe('fenêtre de saisie : affichage', () => {
-  test('origine et raison s\'affichent en texte brut, même hostiles', () => {
+  test('ni l\'origine ni la raison fournie par la page ne sont affichées : rien de la page n\'entre dans cette fenêtre', () => {
     const { v, root } = make();
     const hostile = '<img src=x onerror=alert(1)>';
     v.update({ ...base, origin: 'https://app.synco.one', reason: hostile });
-    expect(all(root)).toContain('https://app.synco.one');
-    expect(all(root)).toContain(`« ${hostile} »`);
+    expect(all(root)).not.toContain('https://app.synco.one');
+    expect(all(root)).not.toContain(hostile);
+    expect(all(root)).not.toContain('Demandé par');
     expect(root.findAll((e) => ['img', 'script', 'iframe'].includes(e.tagName))).toEqual([]);
-  });
-
-  test('l\'origine demandeuse est visible et libellée', () => {
-    const { v, root } = make();
-    v.update(base);
-    const req = root.findAll((e) => e.getAttribute('class') === 'requester')[0]!;
-    expect(req.hidden).toBe(false);
-    expect(req.textContent).toContain('Demandé par');
-    expect(req.textContent).toContain('https://app.synco.one');
   });
 
   test('pavé numérique : 0 à 9, effacer, retour arrière, avec libellés accessibles', () => {
@@ -144,11 +136,9 @@ describe('fenêtre de saisie : affichage', () => {
     expect(all(root)).toContain('Déverrouillé');
   });
 
-  test('succès : la demande n\'est plus affichée, le formulaire non plus, pas de bouton Fermer', () => {
+  test('succès : le formulaire n\'est plus affiché, pas de bouton Fermer', () => {
     const { v, root } = make();
     v.update({ ...base, phase: 'done', keypadEnabled: false, canSubmit: false });
-    const req = root.findAll((e) => e.getAttribute('class') === 'requester')[0]!;
-    expect(req.hidden).toBe(true);
     expect(root.findAll((e) => e.getAttribute('class') === 'form')[0]!.hidden).toBe(true);
     expect(root.findAll((e) => e.tagName === 'button' && e.textContent === 'Fermer')[0]!.parent!.hidden).toBe(true);
   });
