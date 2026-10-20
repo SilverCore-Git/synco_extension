@@ -89,6 +89,9 @@ export class Router {
       }
       case 'has':
         return { exists: await vault.has(origin, req.args.deviceId) };
+      case 'cancel':
+        // Jamais de PIN ici ; seule l'invite de cette origine et de cet onglet peut être fermée.
+        return { cancelled: prompts.cancelFor(origin, tabId) };
       case 'remove':
         await vault.remove(origin, req.args.deviceId);
         return { removed: true };

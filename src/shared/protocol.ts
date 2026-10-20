@@ -19,7 +19,7 @@ export const PROMPT_PAGE = 'prompt.html';
 export const OPTIONS_PAGE = 'options.html';
 export const POPUP_PAGE = 'popup.html';
 
-export const OPS = ['status', 'create', 'load', 'remove', 'has'] as const;
+export const OPS = ['status', 'create', 'load', 'remove', 'has', 'cancel'] as const;
 export type Op = (typeof OPS)[number];
 
 export type ErrorCode =
@@ -42,6 +42,8 @@ export interface ErrorBody {
 
 export type Args = {
   status: Record<string, never>;
+  /** La page abandonne sa demande de PIN en cours : la fenêtre de l'extension se ferme. */
+  cancel: Record<string, never>;
   has: { deviceId: string };
   remove: { deviceId: string };
   create: { deviceId: string; reason?: string };
@@ -119,8 +121,9 @@ export function parseRequest(data: unknown): ParseResult {
 
   switch (op as Op) {
     case 'status':
+    case 'cancel':
       if (Object.keys(args).length !== 0) return bad('Arguments invalides.');
-      return { ok: true, request: { id: data.id, op: 'status', args: {} } };
+      return { ok: true, request: { id: data.id, op: op as 'status' | 'cancel', args: {} } };
     case 'has':
     case 'remove': {
       if (!hasOnly(args, ['deviceId']) || !isUuid(args.deviceId)) return bad('Arguments invalides.');

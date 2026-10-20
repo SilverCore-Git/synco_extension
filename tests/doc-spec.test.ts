@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
-import { OPS, MAX_REASON_DISPLAY, MAX_REASON_LENGTH, MAX_REQUEST_BYTES, PROTOCOL_VERSION } from '../src/shared/protocol';
+import { OPS, MAX_REASON_LENGTH, MAX_REQUEST_BYTES, PROTOCOL_VERSION } from '../src/shared/protocol';
 import {
   BACKOFF_STEPS_SECONDS,
   DK_LENGTH,
@@ -38,7 +38,7 @@ describe('doc/16-coffre-extension.md concorde avec le code', () => {
     expect(doc).toContain(`protocol: ${PROTOCOL_VERSION} }`);
     expect(doc).toContain(`au plus ${MAX_REQUEST_BYTES} octets`);
     expect(doc).toContain(`au plus ${MAX_REASON_LENGTH} caractères`);
-    expect(doc).toContain(`au plus ${MAX_REASON_DISPLAY} caractères affichés`);
+    expect(doc).toContain('Rien de ce que la page fournit n\'est affiché');
     expect(doc).toContain(`de ${MIN_PIN_LENGTH} à ${MAX_PIN_LENGTH} chiffres`);
     expect(doc).toContain(`\`ArrayBuffer\` de ${DK_LENGTH} octets`);
   });

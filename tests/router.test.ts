@@ -70,6 +70,47 @@ describe('create et load via l\'invite', () => {
     expect(((await done) as Resp).error?.code).toBe('cancelled');
   });
 
+  test('cancel : la page ferme SA propre invite ; la demande en attente reçoit « cancelled » et la fenêtre se ferme', async () => {
+    const bg = makeBackground();
+    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    const pending = bg.router.handle(bg.vaultMsg('load', { deviceId: DEVICE }), pageSender()) as Promise<Resp>;
+    await until(() => bg.host.opened.length === 1);
+
+    const r = (await bg.router.handle(bg.vaultMsg('cancel'), pageSender())) as Resp;
+    expect(r).toEqual({ id: 1, ok: true, result: { cancelled: true } });
+    expect((await pending).error?.code).toBe('cancelled');
+    bg.timers.advance(100);
+    expect(bg.host.closed).toEqual([bg.host.opened[0]!.windowId]);
+    // et la saisie est bien terminée : un PIN envoyé ensuite n'ouvre rien
+    const late = (await bg.router.handle({ kind: 'prompt', type: 'submit', sessionId: bg.host.sessionId, pin: PIN }, promptSender(bg.host.sessionId))) as any;
+    expect(late).toMatchObject({ ok: false, error: { code: 'cancelled', terminal: true } });
+  });
+
+  test('cancel : sans invite ouverte, rien à faire ; une autre origine ou un autre onglet ne peut pas fermer l\'invite d\'un tiers', async () => {
+    const bg = makeBackground();
+    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    expect(((await bg.router.handle(bg.vaultMsg('cancel'), pageSender())) as Resp).result).toEqual({ cancelled: false });
+
+    const pending = bg.router.handle(bg.vaultMsg('load', { deviceId: DEVICE }), pageSender()) as Promise<Resp>;
+    await until(() => bg.host.opened.length === 1);
+    const otherTab = (await bg.router.handle(bg.vaultMsg('cancel'), pageSender(ORIGIN, { tab: { id: 8 } }))) as Resp;
+    const otherOrigin = (await bg.router.handle(bg.vaultMsg('cancel'), pageSender(OTHER_ORIGIN))) as Resp;
+    expect(otherTab.result).toEqual({ cancelled: false });
+    expect(otherOrigin.result).toEqual({ cancelled: false });
+    expect(bg.host.closed).toHaveLength(0);
+    expect(bg.prompts.ping(bg.host.sessionId)).toBe(true); // toujours ouverte
+    bg.prompts.cancel(bg.host.sessionId);
+    await pending;
+  });
+
+  test('cancel : origine non autorisée ou iframe refusées comme toute autre opération', async () => {
+    const bg = makeBackground();
+    const evil = (await bg.router.handle(bg.vaultMsg('cancel'), pageSender('https://evil.example'))) as Resp;
+    expect(evil.error?.code).toBe('unavailable');
+    const frame = (await bg.router.handle(bg.vaultMsg('cancel'), pageSender(ORIGIN, { frameId: 3 }))) as Resp;
+    expect(frame.error?.code).toBe('unavailable');
+  });
+
   test('load sans enregistrement : missing, sans afficher de fenêtre', async () => {
     const bg = makeBackground();
     const r = (await bg.router.handle(bg.vaultMsg('load', { deviceId: DEVICE }), pageSender())) as Resp;

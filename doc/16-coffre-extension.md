@@ -39,6 +39,7 @@ L'extension expose les opérations de l'interface `DeviceVault` de l'application
 | `create` | `deviceId`, `reason?` | `{ dk }` (nouvelle DK, remplace l'enregistrement existant) | oui, deux fois |
 | `load` | `deviceId`, `reason?` | `{ dk }` | oui |
 | `remove` | `deviceId` | `{ removed: true }` (idempotent) | non |
+| `cancel` | aucun | `{ cancelled }` : vrai si une invite de cette origine et de cet onglet a été fermée | non |
 
 - `deviceId` est un UUID. `records` ne liste que les `deviceId` de **l'origine appelante** ; `has` ne renseigne que sur
   elle.
@@ -117,11 +118,20 @@ absente » ; elle ne doit jamais bloquer. Une réponse `ready` ne prouve pas l'i
 `create` et `load` ouvrent une **fenêtre de l'extension**, `windows.create({ type: 'popup' })`, qui fonctionne sur
 Chrome et sur Firefox.
 
-Ce que la fenêtre affiche :
-- l'**origine demandeuse**, fournie par le worker et jamais lue dans l'URL de la fenêtre ;
-- la raison, en texte brut : caractères de contrôle et marques bidi neutralisés, au plus 120 caractères affichés ;
-- un pavé numérique, avec le clavier physique accepté ;
-- « Annuler ».
+Ce que la fenêtre affiche : une scène (l'application Synco et l'extension reliées par un lien animé), un titre, un
+emplacement de saisie, un pavé numérique (clavier physique accepté), « Annuler », et en une ligne les limites (vérifié
+par l'extension, effacement après 10 erreurs).
+
+**Rien de ce que la page fournit n'est affiché**, ni l'origine ni la raison. L'origine n'informe pas l'utilisateur : elle
+est forcément l'une des adresses exactes de la liste blanche (une seule en production), et la menace M2 ne change pas
+avec : un script injecté dans l'application *est* sur la bonne origine. Un texte venu de la page dans une fenêtre de
+sécurité ne ferait qu'ouvrir la porte à l'hameçonnage. La raison est quand même reçue, nettoyée et plafonnée, pour qu'une
+version ultérieure puisse s'en servir sans changer le protocole.
+
+**Annulation par la page.** `cancel` ferme la fenêtre ouverte par **cette** origine dans **cet** onglet ; la demande en
+attente reçoit `cancelled`. Une autre origine ou un autre onglet ne peut pas fermer l'invite d'un tiers (le résultat est
+alors `{ cancelled: false }`). Une extension plus ancienne qui ne connaît pas `cancel` répond `bad-request` : l'application
+l'ignore, la fenêtre se ferme alors d'elle-même au bout de 2 minutes ou quand l'utilisateur la ferme.
 
 `create` demande le PIN deux fois et signale qu'il remplacera un enregistrement existant. Le PIN compte de 4 à 32
 chiffres.
@@ -233,7 +243,7 @@ ont un état.
 | # | Menace | Réponse | Reste |
 | --- | --- | --- | --- |
 | M1 | A1 lit le coffre directement (comme l'IndexedDB du coffre PIN de la page) | Les données sont dans l'origine de l'extension, hors de portée du JavaScript de la page. L'enregistrement ne peut pas être exfiltré pour un essai hors ligne. | — |
-| M2 | A1 appelle `load` en silence | Chaque `load` ouvre une fenêtre de l'extension qui affiche l'origine et exige le PIN ; une invite à la fois ; 3 par minute ; 2 minutes au plus. | Si l'utilisateur tape son PIN dans une invite déclenchée par A1, A1 reçoit DK. L'invite affiche l'origine, mais A1 *est* sur la bonne origine : l'invite ne distingue pas l'application d'un script injecté dans l'application. |
+| M2 | A1 appelle `load` en silence | Chaque `load` ouvre une fenêtre de l'extension qui exige le PIN ; une invite à la fois ; 3 par minute ; 2 minutes au plus. | Si l'utilisateur tape son PIN dans une invite déclenchée par A1, A1 reçoit DK. L'invite ne distingue pas l'application d'un script injecté dans l'application : A1 *est* sur la bonne origine, donc afficher l'origine n'aiderait pas. |
 | M3 | A1 devine le PIN par l'interface | Chaque essai passe par la fenêtre de l'extension (geste de l'utilisateur), avec le compteur 16.5 et l'effacement au 10ᵉ échec. | — |
 | M4 | A1 efface l'enregistrement (`remove`) ou le remplace (`create`) | `remove` sans PIN est un choix (on peut toujours se déconnecter) ; `create` passe par l'invite, qui signale le remplacement. | Déni de service : l'appareil doit être relié de nouveau. Aucune fuite de clé. |
 | M5 | A1 sonde l'existence d'enregistrements | `status` et `has` ne parlent que de l'origine appelante. | A1 apprend les `deviceId` de cette origine, que l'application connaît déjà. |

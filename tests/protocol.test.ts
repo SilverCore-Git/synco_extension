@@ -16,6 +16,7 @@ const refused = (data: unknown) => {
 describe('requêtes de la page : validation stricte', () => {
   test('requêtes valides pour chaque opération', () => {
     expect(ok({ id: 1, op: 'status', args: {} })).toEqual({ id: 1, op: 'status', args: {} });
+    expect(ok({ id: 2, op: 'cancel', args: {} })).toEqual({ id: 2, op: 'cancel', args: {} });
     expect(ok({ id: 2, op: 'has', args: { deviceId: DEVICE } }).op).toBe('has');
     expect(ok({ id: 3, op: 'remove', args: { deviceId: DEVICE } }).op).toBe('remove');
     expect(ok({ id: 4, op: 'load', args: { deviceId: DEVICE } })).toEqual({ id: 4, op: 'load', args: { deviceId: DEVICE } });
@@ -43,6 +44,7 @@ describe('requêtes de la page : validation stricte', () => {
     ['arguments manquants', { id: 1, op: 'has' }],
     ['arguments en tableau', { id: 1, op: 'has', args: [DEVICE] }],
     ['status avec argument', { id: 1, op: 'status', args: { x: 1 } }],
+    ['cancel avec argument', { id: 1, op: 'cancel', args: { deviceId: 'x' } }],
     ['deviceId absent', { id: 1, op: 'load', args: {} }],
     ['deviceId non UUID', { id: 1, op: 'load', args: { deviceId: 'abc' } }],
     ['deviceId avec chemin', { id: 1, op: 'load', args: { deviceId: `../${DEVICE}` } }],

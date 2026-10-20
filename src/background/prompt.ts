@@ -164,6 +164,18 @@ export class PromptManager {
     return this.active(sessionId) !== null;
   }
 
+  /**
+   * Annulation demandée par la PAGE qui a ouvert l'invite (son bouton « Annuler »). Elle ne vaut que pour une invite
+   * ouverte par cette même origine et ce même onglet : une autre page ne peut pas fermer la fenêtre d'un tiers.
+   * Retourne vrai si une invite a été fermée.
+   */
+  cancelFor(origin: string, tabId: number): boolean {
+    const s = this.session;
+    if (!s || s.settled || s.req.origin !== origin || s.req.tabId !== tabId) return false;
+    this.settle(s, 'reject', new VaultError('cancelled'));
+    return true;
+  }
+
   cancel(sessionId: string): void {
     const s = this.active(sessionId);
     if (s) this.settle(s, 'reject', new VaultError('cancelled'));
