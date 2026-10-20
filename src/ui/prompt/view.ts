@@ -1,7 +1,7 @@
 import { formatClock, formatDuration } from '../format';
 import { h } from '../dom';
 import { banner, icon, tile, wordmark } from '../kit';
-import type { PromptView } from './controller';
+import type { Phase, PromptView } from './controller';
 
 export interface PromptHandlers {
   press(digit: string): void;
@@ -12,27 +12,68 @@ export interface PromptHandlers {
   close(): void;
 }
 
+/** État de la scène de connexion (Synco ↔ extension), déduit de la phase de la fenêtre. */
+export type SceneState = 'connecting' | 'waiting' | 'working' | 'success' | 'error';
+
+export function sceneState(phase: Phase): SceneState {
+  switch (phase) {
+    case 'loading':
+      return 'connecting';
+    case 'verifying':
+      return 'working';
+    case 'done':
+      return 'success';
+    case 'fatal':
+    case 'expired':
+      return 'error';
+    default:
+      return 'waiting';
+  }
+}
+
+/**
+ * Scène de connexion : l'application Synco et l'extension, reliées par un lien animé. Elle raconte ce qui se passe
+ * (en attente du code, vérification, réussite, échec) ; les animations sont purement visuelles (CSS).
+ */
+function createScene(doc: Document): { root: HTMLElement; set(state: SceneState): void } {
+  const packets = [0, 1, 2].map((i) => h(doc, 'span', { class: 'packet', attrs: { 'data-i': String(i), 'aria-hidden': 'true' } }));
+  const root = h(
+    doc,
+    'div',
+    { class: 'scene', attrs: { role: 'img', 'aria-label': 'Connexion entre Synco et l\'extension' } },
+    h(doc, 'div', { class: 'node node-app' }, h(doc, 'span', { class: 'app-icon', attrs: { 'aria-hidden': 'true' } }), h(doc, 'span', { class: 'node-label', text: 'Synco' })),
+    h(doc, 'div', { class: 'link', attrs: { 'aria-hidden': 'true' } }, h(doc, 'span', { class: 'track' }), ...packets, h(doc, 'span', { class: 'link-check' }, icon(doc, 'shield-check'))),
+    h(doc, 'div', { class: 'node node-ext' }, h(doc, 'span', { class: 'ext-icon' }, icon(doc, 'shield-lock-fill')), h(doc, 'span', { class: 'node-label', text: 'Extension' })),
+  );
+  root.setAttribute('data-state', 'connecting');
+  return { root, set: (state) => root.setAttribute('data-state', state) };
+}
+
 /**
  * Squelette stable (créé une fois) mis à jour à chaque changement d'état : le focus clavier n'est pas perdu.
  * Tout ce qui vient de la page web (origine, raison) est inséré en texte, jamais en HTML.
  */
 export function createPromptView(doc: Document, handlers: PromptHandlers): { root: HTMLElement; update(view: PromptView): void } {
+  const scene = createScene(doc);
   const title = h(doc, 'h1', { attrs: { id: 'title' } });
+  const hint = h(doc, 'p', { class: 'hint' });
+
   const originEl = h(doc, 'div', { class: 'origin' });
   const reasonEl = h(doc, 'p', { class: 'reason' });
   const requester = h(
     doc,
     'section',
     { class: 'requester', attrs: { 'aria-labelledby': 'requester-label' } },
-    tile(doc, 'shield-lock-fill', 'primary'),
+    tile(doc, 'lock-fill', 'primary'),
     h(doc, 'div', { class: 'who' }, h(doc, 'div', { class: 'label', text: 'Demandé par', attrs: { id: 'requester-label' } }), originEl),
     reasonEl,
   );
+
   const replacing = banner(doc, 'warn', 'Un enregistrement existe déjà pour cet appareil : il sera remplacé.');
-  const hint = h(doc, 'p', { class: 'muted' });
-  const dots = h(doc, 'div', { class: 'dots', attrs: { role: 'img' } });
   const errorText = h(doc, 'span');
   const error = h(doc, 'p', { class: 'banner error', attrs: { role: 'alert', 'aria-live': 'polite' } }, icon(doc, 'x-circle-fill'), errorText);
+
+  const dots = h(doc, 'div', { class: 'dots', attrs: { role: 'img' } });
 
   const keyButtons: HTMLButtonElement[] = [];
   const key = (label: string, aria: string, onClick: () => void, cls?: string) => {
@@ -55,40 +96,46 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
   const actions = h(doc, 'div', { class: 'actions fill' }, cancelBtn, submitBtn);
 
   const countdown = h(doc, 'p', { class: 'muted countdown' });
-  const limits = h(doc, 'p', { class: 'fine' }, icon(doc, 'lock-fill'), h(doc, 'span', {
-    text: 'Ce code est vérifié par l\'extension, pas par le site. Après 10 erreurs, la clé de cet appareil est effacée.',
+  const limits = h(doc, 'p', { class: 'fine' }, icon(doc, 'shield-check'), h(doc, 'span', {
+    text: 'Vérifié par l\'extension, pas par le site. Après 10 erreurs, la clé de cet appareil est effacée.',
   }));
-  const form = h(doc, 'div', {}, hint, dots, keypad, actions, countdown, limits);
+  const form = h(doc, 'div', { class: 'form' }, dots, keypad, actions, countdown, limits);
 
   const closeBtn = h(doc, 'button', { class: 'primary', text: 'Fermer', attrs: { type: 'button' }, on: { click: handlers.close } });
   const closeRow = h(doc, 'div', { class: 'actions fill' }, closeBtn);
 
   const head = h(doc, 'header', { class: 'prompt-head' }, wordmark(doc), h(doc, 'span', { class: 'chip chip-off', text: 'Coffre de clés' }));
-  const root = h(doc, 'main', { class: 'prompt', attrs: { 'aria-live': 'polite' } }, head, title, requester, replacing, error, form, closeRow);
+  const root = h(doc, 'main', { class: 'prompt', attrs: { 'aria-live': 'polite' } }, head, scene.root, h(doc, 'div', { class: 'heading' }, title, hint), requester, replacing, error, form, closeRow);
 
   function update(view: PromptView): void {
     const showForm = view.phase === 'enter' || view.phase === 'confirm' || view.phase === 'verifying';
+    scene.set(sceneState(view.phase));
+    root.setAttribute('data-phase', view.phase);
     title.textContent = view.title;
+    hint.textContent = view.hint;
+    hint.hidden = view.hint === '';
 
-    requester.hidden = view.origin === null;
+    requester.hidden = view.origin === null || view.phase === 'done';
     originEl.textContent = view.origin ?? '';
     reasonEl.hidden = view.reason === null;
     reasonEl.textContent = view.reason === null ? '' : `« ${view.reason} »`;
-    replacing.hidden = !(view.replacing && view.mode === 'create' && view.phase !== 'verifying');
+    replacing.hidden = !(view.replacing && view.mode === 'create' && view.phase !== 'verifying' && view.phase !== 'done');
 
     error.hidden = view.error === null;
     errorText.textContent = view.error ?? '';
+    // Deux classes en alternance : chaque nouvelle erreur rejoue la secousse (rajouter la même classe ne le ferait pas).
+    dots.setAttribute('class', view.error !== null && view.errorSeq > 0 ? `dots shake-${view.errorSeq % 2 === 0 ? 'a' : 'b'}` : 'dots');
 
     form.hidden = !showForm;
     closeRow.hidden = showForm || view.phase === 'loading' || view.phase === 'done';
-    hint.textContent = view.hint;
     root.setAttribute('aria-busy', view.phase === 'verifying' || view.phase === 'loading' ? 'true' : 'false');
 
     dots.setAttribute('aria-label', `${view.dots} chiffre${view.dots > 1 ? 's' : ''} saisi${view.dots > 1 ? 's' : ''}`);
+    // Emplacements vides jusqu'à la longueur minimale, puis un point par chiffre au-delà : le champ « se remplit ».
+    const empty = Math.max(0, view.slots - view.dots);
     dots.replaceChildren(
-      ...(view.dots === 0
-        ? [h(doc, 'span', { class: 'placeholder', text: 'Aucun chiffre saisi' })]
-        : Array.from({ length: view.dots }, () => h(doc, 'span', { class: 'dot' }))),
+      ...Array.from({ length: view.dots }, () => h(doc, 'span', { class: 'dot' })),
+      ...Array.from({ length: empty }, () => h(doc, 'span', { class: 'slot' })),
     );
 
     for (const b of keyButtons) b.disabled = !view.keypadEnabled;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { assertInertSvg, ICONS_CSS, ICONS_DIR, iconNames, renderIconsCss, splitWordmark, svgDataUri, WORDMARK } from '../scripts/lib/uiAssets.mjs';
+import { assertInertSvg, ICONS_CSS, ICONS_DIR, iconNames, renderIconsCss, splitWordmark, svgDataUri, WORDMARK, APP_ICON } from '../scripts/lib/uiAssets.mjs';
 
 const root = new URL('../', import.meta.url);
 const rootPath = new URL('.', root).pathname;
@@ -73,6 +73,7 @@ describe('icônes et logo de l\'interface', () => {
       expect(() => assertInertSvg(read(`${ICONS_DIR}/${f}`), f)).not.toThrow();
     }
     expect(() => assertInertSvg(read(WORDMARK), WORDMARK)).not.toThrow();
+    expect(() => assertInertSvg(read(APP_ICON), APP_ICON)).not.toThrow();
   });
 
   test('logo : lettres et point séparés (le point garde le vert Synco, les lettres suivent le thème)', () => {

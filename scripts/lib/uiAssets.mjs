@@ -9,6 +9,7 @@ import { join } from 'node:path';
 
 export const ICONS_DIR = 'assets/vendor/bootstrap-icons';
 export const WORDMARK = 'assets/brand/wordmark.svg';
+export const APP_ICON = 'assets/brand/icon.svg';
 export const ICONS_CSS = 'src/ui/icons.css';
 
 const NAME = /^[a-z0-9-]+$/;
@@ -59,6 +60,8 @@ export function renderIconsCss(root) {
   const wordmark = readFileSync(join(root, WORDMARK), 'utf8');
   assertInertSvg(wordmark, WORDMARK);
   const { letters, dot } = splitWordmark(wordmark);
+  const appIcon = readFileSync(join(root, APP_ICON), 'utf8');
+  assertInertSvg(appIcon, APP_ICON);
 
   return [
     '/* Fichier généré par scripts/make-ui-assets.mjs : ne pas modifier à la main. */',
@@ -70,6 +73,8 @@ export function renderIconsCss(root) {
     '',
     `.wordmark { --logo-letters: ${svgDataUri(letters)};`,
     `  --logo-dot: ${svgDataUri(dot)}; }`,
+    '',
+    `.app-icon { --app-icon: ${svgDataUri(appIcon)}; }`,
     '',
   ].join('\n');
 }

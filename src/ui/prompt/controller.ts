@@ -20,8 +20,12 @@ export interface PromptView {
   title: string;
   hint: string;
   error: string | null;
+  /** Compteur qui change à chaque nouvelle erreur : l'affichage s'en sert pour rejouer l'animation. */
+  errorSeq: number;
   /** Nombre de chiffres saisis (jamais les chiffres eux-mêmes). */
   dots: number;
+  /** Emplacements vides affichés (longueur minimale du PIN) : le champ se remplit au fil de la saisie. */
+  slots: number;
   keypadEnabled: boolean;
   canSubmit: boolean;
   submitLabel: string;
@@ -37,6 +41,10 @@ export interface PromptDeps {
   close(): void;
   now?: () => number;
   pingEveryMs?: number;
+  /** Planifie une action différée (setTimeout en production). */
+  schedule?: (fn: () => void, ms: number) => void;
+  /** Durée pendant laquelle le message de réussite reste affiché avant de fermer la fenêtre. */
+  successHoldMs?: number;
 }
 
 const DIGIT = /^[0-9]$/;
@@ -52,6 +60,7 @@ export class PromptController {
   private pin = '';
   private first = '';
   private error: string | null = null;
+  private errorSeq = 0;
   private lockedUntil: number | null = null;
   private lastPing = 0;
   private listener: (view: PromptView) => void = () => undefined;
@@ -76,7 +85,7 @@ export class PromptController {
     }
     if (!res.ok) {
       this.phase = 'expired';
-      this.error = describeError('cancelled');
+      this.fail(describeError('cancelled'));
     } else {
       this.info = res.info;
       this.phase = 'enter';
@@ -106,7 +115,7 @@ export class PromptController {
   async submit(): Promise<void> {
     if (!this.canType() || !this.info) return;
     if (this.pin.length < this.info.minPin) {
-      this.error = `Le code doit contenir au moins ${this.info.minPin} chiffres.`;
+      this.fail(`Le code doit contenir au moins ${this.info.minPin} chiffres.`);
       this.notify();
       return;
     }
@@ -122,7 +131,7 @@ export class PromptController {
     if (this.phase === 'confirm' && this.pin !== this.first) {
       this.first = '';
       this.pin = '';
-      this.error = 'Les deux codes ne correspondent pas. Choisissez-le de nouveau.';
+      this.fail('Les deux codes ne correspondent pas. Choisissez-le de nouveau.');
       this.phase = 'enter';
       this.notify();
       return;
@@ -143,19 +152,20 @@ export class PromptController {
     }
 
     if (outcome.ok) {
+      // Le message de réussite reste lisible un instant : la page de Synco affiche la même réussite en parallèle.
       this.phase = 'done';
       this.notify();
-      this.deps.close();
+      (this.deps.schedule ?? ((fn, ms) => void setTimeout(fn, ms)))(() => this.deps.close(), this.deps.successHoldMs ?? 1400);
       return;
     }
     const { code, retryAfterSeconds, terminal } = outcome.error;
     if (code === 'wrong-pin' && !terminal) {
       this.phase = 'enter';
-      this.error = describeError(code, retryAfterSeconds);
+      this.fail(describeError(code, retryAfterSeconds));
       if (retryAfterSeconds !== undefined) this.lockedUntil = this.now() + retryAfterSeconds * 1000;
     } else {
       this.phase = 'fatal';
-      this.error = describeError(code, retryAfterSeconds);
+      this.fail(describeError(code, retryAfterSeconds));
     }
     this.notify();
   }
@@ -210,13 +220,20 @@ export class PromptController {
       title: this.title(),
       hint: this.hint(),
       error: this.error,
+      errorSeq: this.errorSeq,
       dots: this.pin.length,
+      slots: info?.minPin ?? 4,
       keypadEnabled: typing && !locked,
       canSubmit: typing && !locked && info !== null && this.pin.length >= info.minPin,
       submitLabel: mode === 'create' ? (this.phase === 'confirm' ? 'Valider' : 'Continuer') : 'Déverrouiller',
       remainingSeconds: info && typing ? Math.max(0, Math.ceil((info.expiresAt - now) / 1000)) : null,
       lockSeconds: locked && this.lockedUntil !== null ? Math.ceil((this.lockedUntil - now) / 1000) : null,
     };
+  }
+
+  private fail(message: string): void {
+    this.error = message;
+    this.errorSeq++;
   }
 
   private canType(): boolean {
@@ -230,7 +247,7 @@ export class PromptController {
   private expire(): void {
     this.wipe();
     this.phase = 'expired';
-    this.error = describeError('cancelled');
+    this.fail(describeError('cancelled'));
     this.notify();
   }
 
@@ -240,28 +257,32 @@ export class PromptController {
   }
 
   private title(): string {
+    const create = this.info?.mode === 'create';
     switch (this.phase) {
       case 'loading':
-        return 'Ouverture…';
+        return 'Connexion à Synco…';
       case 'done':
-        return 'Terminé';
+        return create ? 'Appareil protégé' : 'Déverrouillé';
       case 'fatal':
         return 'Impossible de continuer';
       case 'expired':
         return 'Demande expirée';
+      case 'verifying':
+        return create ? 'Chiffrement de la clé…' : 'Vérification du code…';
       default:
-        if (this.info?.mode === 'create') return this.phase === 'confirm' ? 'Confirmer le code PIN' : 'Choisir un code PIN';
-        return 'Déverrouiller la clé de cet appareil';
+        if (create) return this.phase === 'confirm' ? 'Confirmez votre code' : 'Choisissez un code PIN';
+        return 'Entrez votre code PIN';
     }
   }
 
   private hint(): string {
     const info = this.info;
-    if (this.phase === 'verifying') return 'Vérification en cours…';
+    if (this.phase === 'done') return 'Vous pouvez retourner sur Synco.';
+    if (this.phase === 'verifying') return 'Un instant…';
     if (!info || (this.phase !== 'enter' && this.phase !== 'confirm')) return '';
-    if (info.mode === 'load') return `Saisissez le code PIN de l'extension (${info.minPin} à ${info.maxPin} chiffres).`;
-    if (this.phase === 'confirm') return 'Saisissez de nouveau le même code pour le confirmer.';
-    return `Choisissez ${info.minPin} chiffres au minimum. Ce code protège la clé de cet appareil dans l'extension ; il n'est jamais envoyé à Synco.`;
+    if (info.mode === 'load') return 'Pour déverrouiller vos messages sur cet appareil.';
+    if (this.phase === 'confirm') return 'Saisissez le même code une seconde fois.';
+    return `${info.minPin} chiffres au minimum. Ce code protège la clé de cet appareil ; il n'est jamais envoyé à Synco.`;
   }
 
   private notify(): void {

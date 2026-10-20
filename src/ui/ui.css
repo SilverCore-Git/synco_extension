@@ -251,3 +251,71 @@ body.prompt-page { min-height: 100vh; }
 .countdown { text-align: right; font-variant-numeric: tabular-nums; }
 .prompt .fine { font-size: 0.75rem; color: var(--text2); display: flex; gap: 0.5rem; }
 .prompt .fine .bi { margin-top: 0.15rem; }
+
+/* ---- Scène de connexion : l'application Synco et l'extension, reliées par un lien animé ---- */
+.scene { --track: 5.5rem; display: flex; align-items: flex-start; justify-content: center; gap: 0; padding: 0.4rem 0 0.2rem; }
+.node { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 4.5rem; }
+.node-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text2); transition: color 0.3s; }
+.app-icon, .ext-icon { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 1.05rem; transition: box-shadow 0.4s, transform 0.4s, background-color 0.4s; }
+.app-icon { background: var(--app-icon) center / contain no-repeat; box-shadow: 0 6px 18px -8px rgba(var(--primary-rgb), 0.6); }
+.ext-icon { position: relative; font-size: 1.6rem; color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--bg2)); border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent); }
+.ext-icon::after { content: ""; position: absolute; inset: -5px; border-radius: 1.3rem; border: 2px solid var(--primary); opacity: 0; }
+
+.link { position: relative; width: var(--track); height: 3.5rem; flex: none; }
+.track { position: absolute; left: 0.35rem; right: 0.35rem; top: 50%; height: 0; border-top: 2px dashed color-mix(in srgb, var(--text) 25%, transparent); transition: border-color 0.4s; }
+.packet { position: absolute; top: 50%; left: 0; width: 0.5rem; height: 0.5rem; margin-top: -0.25rem; border-radius: 50%; background: var(--primary); box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.8); opacity: 0; }
+.link-check { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 1.9rem; height: 1.9rem; margin: -0.95rem 0 0 -0.95rem; border-radius: 50%; background: var(--primary); color: var(--on-primary); font-size: 1rem; transform: scale(0); }
+
+@keyframes flow { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: calc(100% - 0.5rem); opacity: 0; } }
+@keyframes ring { 0% { transform: scale(0.92); opacity: 0.7; } 100% { transform: scale(1.18); opacity: 0; } }
+@keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* connexion et attente du code : des paquets circulent de Synco vers l'extension */
+.scene[data-state="connecting"] .packet, .scene[data-state="waiting"] .packet { animation: flow 1.8s ease-in-out infinite; }
+.scene[data-state="waiting"] .packet { animation-duration: 2.4s; }
+.packet[data-i="1"] { animation-delay: 0.6s !important; }
+.packet[data-i="2"] { animation-delay: 1.2s !important; }
+.scene[data-state="waiting"] .ext-icon::after { animation: ring 1.8s ease-out infinite; }
+/* vérification : l'extension travaille, les paquets s'accélèrent */
+.scene[data-state="working"] .packet { animation: flow 0.9s linear infinite; }
+.scene[data-state="working"] .ext-icon::after { animation: ring 0.9s ease-out infinite; }
+.scene[data-state="working"] .track { border-top-color: color-mix(in srgb, var(--primary) 55%, transparent); }
+/* réussite : lien plein, coche, halo vert */
+.scene[data-state="success"] .track { border-top-style: solid; border-top-color: var(--primary); }
+.scene[data-state="success"] .link-check { animation: pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.scene[data-state="success"] .ext-icon { box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 22%, transparent), 0 0 26px rgba(var(--primary-rgb), 0.55); }
+.scene[data-state="success"] .node-label { color: var(--primary); }
+/* échec : lien rompu */
+.scene[data-state="error"] .track { border-top-color: color-mix(in srgb, var(--danger) 60%, transparent); border-top-style: dotted; }
+.scene[data-state="error"] .ext-icon { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--bg2)); border-color: color-mix(in srgb, var(--danger) 45%, transparent); animation: shake 0.45s; }
+
+/* ---- Fenêtre du PIN : titres, saisie animée ---- */
+.heading { text-align: center; }
+.heading .hint { margin-top: 0.3rem; font-size: 0.82rem; color: var(--text2); }
+.prompt h1 { font-size: 1.25rem; }
+.form { display: flex; flex-direction: column; gap: 0.75rem; animation: rise 0.3s ease both; }
+.dots { min-height: 2.75rem; gap: 0.7rem; }
+.dots .slot { width: 0.8rem; height: 0.8rem; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 25%, transparent); }
+.dots .dot { animation: pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.dots.shake-a { animation: shake 0.45s; }
+.dots.shake-b { animation: shake 0.45s 0.001s; }
+.requester { padding: 0.65rem 0.8rem; }
+.requester .tile { width: 2.1rem; height: 2.1rem; font-size: 1rem; border-radius: 0.65rem; }
+.requester .origin { font-size: 0.9rem; }
+.requester .reason { font-size: 0.78rem; margin-top: 0.15rem; }
+.keypad button:active:not(:disabled) { background: color-mix(in srgb, var(--primary) 30%, transparent); }
+@media (prefers-reduced-motion: reduce) {
+  .packet, .ext-icon::after, .link-check, .form, .dots .dot, .dots.shake-a, .dots.shake-b { animation: none !important; }
+  .scene[data-state="success"] .link-check { transform: scale(1); }
+}
+
+/* Fenêtre du PIN : gabarit resserré pour que tout tienne sans défilement, réussite centrée et agrandie */
+.prompt { gap: 0.7rem; padding-top: 0.75rem; }
+.keypad { gap: 0.4rem; }
+.keypad button { min-height: 2.9rem; font-size: 1.2rem; }
+.prompt[data-phase="done"] { justify-content: center; min-height: 100vh; padding-top: 0; padding-bottom: 3rem; }
+.prompt[data-phase="done"] .scene { transform: scale(1.3); margin-bottom: 1.2rem; transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.prompt[data-phase="done"] .prompt-head { position: absolute; top: 0.75rem; left: 0; right: 0; padding: 0 1rem; }
+.prompt[data-phase="done"] h1 { font-size: 1.5rem; }

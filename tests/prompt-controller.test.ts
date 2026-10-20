@@ -8,6 +8,7 @@ function setup(over: Partial<PromptInfo> = {}, handlers: { submit?: (pin: string
   let t = 1_000_000;
   const info: PromptInfo = { origin: ORIGIN, mode: 'load', reason: null, replacing: false, minPin: 4, maxPin: 8, expiresAt: t + 120_000, ...over };
   const calls = { submit: [] as string[], ping: 0, cancel: 0, close: 0 };
+  const scheduled: { fn: () => void; ms: number }[] = [];
   const backend: PromptBackend = {
     hello: handlers.hello ?? (async () => ({ ok: true, info })),
     ping: async () => {
@@ -22,7 +23,7 @@ function setup(over: Partial<PromptInfo> = {}, handlers: { submit?: (pin: string
       calls.cancel++;
     },
   };
-  const c = new PromptController({ backend, close: () => calls.close++, now: () => t, pingEveryMs: 10_000 });
+  const c = new PromptController({ backend, close: () => calls.close++, now: () => t, pingEveryMs: 10_000, schedule: (fn, ms) => scheduled.push({ fn, ms }), successHoldMs: 1400 });
   let view!: PromptView;
   c.subscribe((v) => (view = v));
   const advance = (ms: number) => {
@@ -30,7 +31,7 @@ function setup(over: Partial<PromptInfo> = {}, handlers: { submit?: (pin: string
     c.tick();
   };
   const type = (digits: string) => [...digits].forEach((d) => c.press(d));
-  return { c, calls, get view() { return view; }, advance, type };
+  return { c, calls, scheduled, get view() { return view; }, advance, type };
 }
 
 const wrong = (code = 'wrong-pin', extra: object = {}): SubmitOutcome => ({ ok: false, error: { code, terminal: false, ...extra } } as SubmitOutcome);
@@ -40,7 +41,7 @@ describe('déverrouillage (load)', () => {
     const s = setup({ reason: 'Ouvrir Synco' });
     expect(s.view.phase).toBe('loading');
     await s.c.start();
-    expect(s.view).toMatchObject({ phase: 'enter', origin: ORIGIN, reason: 'Ouvrir Synco', title: 'Déverrouiller la clé de cet appareil', keypadEnabled: true, canSubmit: false });
+    expect(s.view).toMatchObject({ phase: 'enter', origin: ORIGIN, reason: 'Ouvrir Synco', title: 'Entrez votre code PIN', keypadEnabled: true, canSubmit: false });
   });
 
   test('saisie : seuls les chiffres, plafond de longueur, le nombre de chiffres (jamais leur valeur) est exposé', async () => {
@@ -82,7 +83,27 @@ describe('déverrouillage (load)', () => {
     await done;
     expect(s.calls.submit).toEqual(['4821']);
     expect(s.view.phase).toBe('done');
+    // La réussite reste affichée un instant (la page de Synco montre la même), puis la fenêtre se ferme.
+    expect(s.view).toMatchObject({ title: 'Déverrouillé', hint: 'Vous pouvez retourner sur Synco.' });
+    expect(s.calls.close).toBe(0);
+    expect(s.scheduled).toHaveLength(1);
+    expect(s.scheduled[0]!.ms).toBe(1400);
+    s.scheduled[0]!.fn();
     expect(s.calls.close).toBe(1);
+  });
+
+  test('chaque erreur incrémente le compteur qui rejoue la secousse ; le titre suit la vérification', async () => {
+    const s = setup({}, { submit: async () => wrong() });
+    await s.c.start();
+    expect(s.view.errorSeq).toBe(0);
+    s.type('4821');
+    await s.c.submit();
+    expect(s.view.errorSeq).toBe(1);
+    s.type('4821');
+    await s.c.submit();
+    expect(s.view.errorSeq).toBe(2);
+    s.advance(1000); // un simple tick ne rejoue rien
+    expect(s.view.errorSeq).toBe(2);
   });
 
   test('mauvais PIN : message, saisie vidée, nouvelle tentative possible', async () => {
@@ -144,10 +165,10 @@ describe('création (create) : double saisie', () => {
   test('choix puis confirmation identique : un seul envoi', async () => {
     const s = setup({ mode: 'create' });
     await s.c.start();
-    expect(s.view).toMatchObject({ title: 'Choisir un code PIN', submitLabel: 'Continuer' });
+    expect(s.view).toMatchObject({ title: 'Choisissez un code PIN', submitLabel: 'Continuer' });
     s.type('4821');
     await s.c.submit();
-    expect(s.view).toMatchObject({ phase: 'confirm', title: 'Confirmer le code PIN', submitLabel: 'Valider', dots: 0 });
+    expect(s.view).toMatchObject({ phase: 'confirm', title: 'Confirmez votre code', submitLabel: 'Valider', dots: 0 });
     expect(s.calls.submit).toEqual([]); // rien n'est envoyé avant la confirmation
     s.type('4821');
     await s.c.submit();
@@ -162,7 +183,7 @@ describe('création (create) : double saisie', () => {
     await s.c.submit();
     s.type('4822');
     await s.c.submit();
-    expect(s.view).toMatchObject({ phase: 'enter', title: 'Choisir un code PIN', dots: 0 });
+    expect(s.view).toMatchObject({ phase: 'enter', title: 'Choisissez un code PIN', dots: 0 });
     expect(s.view.error).toContain('ne correspondent pas');
     expect(s.calls.submit).toEqual([]);
     // et le premier code n'est pas resté en mémoire : saisir « 4822 » deux fois fonctionne

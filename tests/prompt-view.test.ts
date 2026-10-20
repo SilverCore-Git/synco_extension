@@ -5,7 +5,7 @@ import { asEl, buttonByText, fakeDoc, type FakeElement } from './helpers/fakeDom
 
 const base: PromptView = {
   phase: 'enter', mode: 'load', origin: 'https://app.synco.one', reason: null, replacing: false,
-  title: 'Déverrouiller la clé de cet appareil', hint: 'Saisissez le code.', error: null, dots: 0,
+  title: 'Entrez votre code PIN', hint: 'Pour déverrouiller.', error: null, errorSeq: 0, dots: 0, slots: 4,
   keypadEnabled: true, canSubmit: false, submitLabel: 'Déverrouiller', remainingSeconds: 90, lockSeconds: null,
 };
 
@@ -56,7 +56,17 @@ describe('fenêtre de saisie : affichage', () => {
     expect(root.findAll((e) => e.getAttribute('class') === 'dot')).toHaveLength(5);
     v.update({ ...base, dots: 0 });
     expect(root.findAll((e) => e.getAttribute('class') === 'dot')).toHaveLength(0);
-    expect(all(root)).toContain('Aucun chiffre saisi');
+  });
+
+  test('emplacements vides jusqu\'à la longueur minimale : le champ se remplit au fil de la saisie', () => {
+    const { v, root } = make();
+    const count = (cls: string) => root.findAll((e) => e.getAttribute('class') === cls).length;
+    v.update({ ...base, dots: 0, slots: 4 });
+    expect([count('dot'), count('slot')]).toEqual([0, 4]);
+    v.update({ ...base, dots: 3, slots: 4 });
+    expect([count('dot'), count('slot')]).toEqual([3, 1]);
+    v.update({ ...base, dots: 6, slots: 4 });
+    expect([count('dot'), count('slot')]).toEqual([6, 0]); // au-delà du minimum : un point par chiffre
   });
 
   test('boutons : annuler, valider (activé selon l\'état), pavé désactivé pendant le verrouillage', () => {
@@ -115,6 +125,44 @@ describe('fenêtre de saisie : affichage', () => {
     const { v, root } = make();
     v.update(base);
     expect(all(root)).toContain('Après 10 erreurs');
-    expect(all(root)).toContain('vérifié par l\'extension, pas par le site');
+    expect(all(root)).toContain('Vérifié par l\'extension, pas par le site');
+  });
+
+  test('scène de connexion : son état suit la phase de la fenêtre', async () => {
+    const { sceneState } = await import('../src/ui/prompt/view');
+    expect(sceneState('loading')).toBe('connecting');
+    for (const phase of ['enter', 'confirm'] as const) expect(sceneState(phase)).toBe('waiting');
+    expect(sceneState('verifying')).toBe('working');
+    expect(sceneState('done')).toBe('success');
+    for (const phase of ['fatal', 'expired'] as const) expect(sceneState(phase)).toBe('error');
+    const { v, root } = make();
+    const scene = () => root.findAll((e) => e.getAttribute('class') === 'scene')[0]!;
+    v.update(base);
+    expect(scene().getAttribute('data-state')).toBe('waiting');
+    v.update({ ...base, phase: 'done', title: 'Déverrouillé', hint: 'Vous pouvez retourner sur Synco.' });
+    expect(scene().getAttribute('data-state')).toBe('success');
+    expect(all(root)).toContain('Déverrouillé');
+  });
+
+  test('succès : la demande n\'est plus affichée, le formulaire non plus, pas de bouton Fermer', () => {
+    const { v, root } = make();
+    v.update({ ...base, phase: 'done', keypadEnabled: false, canSubmit: false });
+    const req = root.findAll((e) => e.getAttribute('class') === 'requester')[0]!;
+    expect(req.hidden).toBe(true);
+    expect(root.findAll((e) => e.getAttribute('class') === 'form')[0]!.hidden).toBe(true);
+    expect(root.findAll((e) => e.tagName === 'button' && e.textContent === 'Fermer')[0]!.parent!.hidden).toBe(true);
+  });
+
+  test('chaque nouvelle erreur rejoue la secousse (classes en alternance), l\'absence d\'erreur l\'enlève', () => {
+    const { v, root } = make();
+    const cls = () => root.findAll((e) => (e.getAttribute('class') ?? '').startsWith('dots'))[0]!.getAttribute('class');
+    v.update({ ...base, error: 'Code PIN incorrect.', errorSeq: 1 });
+    const first = cls();
+    v.update({ ...base, error: 'Code PIN incorrect.', errorSeq: 1 });
+    expect(cls()).toBe(first); // même erreur : pas de nouvelle secousse
+    v.update({ ...base, error: 'Code PIN incorrect.', errorSeq: 2 });
+    expect(cls()).not.toBe(first);
+    v.update({ ...base, error: null, errorSeq: 2 });
+    expect(cls()).toBe('dots');
   });
 });
