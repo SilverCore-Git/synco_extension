@@ -1,8 +1,9 @@
 import { h, type Child } from '../dom';
 import { formatDate, formatDuration, shortId } from '../format';
-import { button, card, chip, emptyState, icon, panelHeader, skeleton, tile } from '../kit';
+import { button, card, chip, emptyState, icon, panelHeader, skeleton, tile, type IconName } from '../kit';
 import type { ModuleContext, UiModule } from '../modules';
 import type { VaultEntry } from '../../vault/vault';
+import type { OptionsState } from '../options/model';
 
 /**
  * Module « Coffre » : accès aux sites Synco et clés enregistrées. Tout texte venant du stockage ou d'une page web
@@ -27,10 +28,106 @@ function entryStatus(doc: Document, e: VaultEntry, active: boolean, now: number)
   return chips;
 }
 
-function renderVault({ doc, surface, now, state, handlers }: ModuleContext): HTMLElement {
+function renderVault(ctx: ModuleContext): HTMLElement {
+  return ctx.surface === 'popup' ? renderVaultPopup(ctx) : renderVaultFull(ctx);
+}
+
+/** Ce que le popup dit en un coup d'œil : un état, une phrase, et au plus une action. */
+export interface Hero {
+  tone: 'ok' | 'warn';
+  icon: IconName;
+  title: string;
+  text: string;
+  /** L'action attendue de l'utilisateur, s'il y en a une. */
+  action: 'grant' | 'manage' | null;
+}
+
+/**
+ * État du coffre pour quelqu'un qui n'est pas technicien. Priorité : ce qui bloque (accès refusé), puis ce qui
+ * demande une réparation, puis l'attente, puis « tout va bien ». Aucun identifiant, aucune adresse, aucun jargon.
+ * `null` quand l'extension ne répond pas : le bandeau d'erreur du cadre dit déjà quoi faire.
+ */
+export function vaultHero(o: OptionsState, now: number): Hero | null {
+  if (o.status !== 'ready') return null;
+  if (o.hosts.some((x) => !x.granted)) {
+    return {
+      tone: 'warn', icon: 'exclamation-triangle-fill', action: 'grant',
+      title: 'Autorisation nécessaire',
+      text: 'Autorisez l\'extension à fonctionner avec Synco pour qu\'elle protège vos clés.',
+    };
+  }
+  const entries = o.groups.filter((g) => g.active).flatMap((g) => g.entries);
+  if (entries.some((e) => !e.readable)) {
+    return {
+      tone: 'warn', icon: 'exclamation-triangle-fill', action: 'manage',
+      title: 'Une clé est illisible',
+      text: 'Supprimez-la, puis reconnectez l\'appareil depuis Synco.',
+    };
+  }
+  const locked = entries.filter((e) => e.lockedUntil !== null && e.lockedUntil > now);
+  if (locked.length > 0) {
+    const wait = Math.max(...locked.map((e) => e.lockedUntil! - now)) / 1000;
+    return {
+      tone: 'warn', icon: 'hourglass-split', action: null,
+      title: 'Trop d\'essais',
+      text: `Réessayez dans ${formatDuration(wait)}.`,
+    };
+  }
+  if (entries.length > 0) {
+    return {
+      tone: 'ok', icon: 'shield-check', action: null,
+      title: entries.length === 1 ? 'Cet appareil est protégé' : `${entries.length} appareils protégés`,
+      text: 'Vos clés sont gardées par l\'extension, derrière votre code PIN.',
+    };
+  }
+  return {
+    tone: 'ok', icon: 'shield-lock-fill', action: null,
+    title: 'Prête à protéger vos clés',
+    text: 'Ouvrez Synco pour connecter cet appareil à l\'extension.',
+  };
+}
+
+/** Popup : minimaliste. Le détail (clés, appareils, suppression) est dans la page des réglages, un clic plus loin. */
+function renderVaultPopup({ doc, now, state, handlers }: ModuleContext): HTMLElement {
+  const hero = vaultHero(state.options, now);
+  const loading = state.options.status === 'loading';
+
+  const point = (text: string) => h(doc, 'li', {}, icon(doc, 'shield-check'), h(doc, 'span', { text }));
+  const help = state.help
+    ? card(doc, { label: 'Comment ça marche' },
+        h(doc, 'ul', { class: 'points' },
+          point('L\'extension garde la clé de cet appareil. Elle ne quitte jamais votre ordinateur.'),
+          point('À chaque connexion, vous tapez votre code PIN dans une petite fenêtre de l\'extension, jamais sur le site.'),
+          point('Après 10 erreurs de code, la clé est effacée : il faudra reconnecter l\'appareil depuis Synco.'),
+        ),
+        handlers.openFull ? h(doc, 'div', { class: 'more' }, button(doc, { label: 'Plus de détails', small: true, onClick: handlers.openFull })) : null,
+      )
+    : null;
+
+  return h(doc, 'div', { class: 'stack' },
+    loading
+      ? h(doc, 'div', { class: 'hero' }, skeleton(doc))
+      : hero
+        ? h(doc, 'section', { class: `hero ${hero.tone}`, attrs: { 'aria-live': 'polite' } },
+            h(doc, 'span', { class: 'hero-icon' }, icon(doc, hero.icon)),
+            h(doc, 'h1', { text: hero.title }),
+            h(doc, 'p', { text: hero.text }),
+            hero.action === 'grant' ? button(doc, { label: 'Autoriser', kind: 'primary', onClick: handlers.grantAccess }) : null,
+            hero.action === 'manage' && handlers.openFull ? button(doc, { label: 'Gérer mes clés', kind: 'primary', onClick: handlers.openFull }) : null,
+          )
+        : null,
+    handlers.toggleHelp
+      ? h(doc, 'div', { class: 'help-row' },
+          button(doc, { label: state.help ? 'Masquer' : 'Comment ça marche ?', icon: 'info-circle-fill', small: true, onClick: handlers.toggleHelp, ariaLabel: state.help ? 'Masquer l\'explication' : 'Comment ça marche ?' }),
+        )
+      : null,
+    help,
+  );
+}
+
+function renderVaultFull({ doc, now, state, handlers }: ModuleContext): HTMLElement {
   const s = state.options;
   const loading = s.status === 'loading';
-  const compact = surface === 'popup';
 
   const hostRows = s.hosts.map((host) =>
     h(doc, 'li', {},
@@ -65,11 +162,7 @@ function renderVault({ doc, surface, now, state, handlers }: ModuleContext): HTM
       : s.groups.map((g) => h(doc, 'div', {}, h(doc, 'h3', { class: 'group-title', text: g.origin }), h(doc, 'ul', { class: 'list' }, ...g.entries.map((e) => entryRow(e, g.active)))));
 
   const point = (text: string) => h(doc, 'li', {}, icon(doc, 'shield-check'), h(doc, 'span', { text }));
-  const about = compact
-    ? card(doc, { label: 'Protection de la clé' },
-        h(doc, 'p', { class: 'muted', text: 'La clé reste dans l\'extension, protégée par votre code PIN, et n\'est jamais envoyée à Synco. Après 10 erreurs de PIN, elle est effacée.' }),
-      )
-    : card(doc, { title: 'À savoir', icon: 'info-circle-fill' },
+  const about = card(doc, { title: 'À savoir', icon: 'info-circle-fill' },
         h(doc, 'ul', { class: 'points' },
           point('Cette extension garde une clé locale par appareil, protégée par votre code PIN. Elle n\'est jamais envoyée à Synco.'),
           point('Ce n\'est pas un gestionnaire de passkeys : elle ne répond à aucun autre site que Synco.'),
@@ -96,7 +189,7 @@ function renderVault({ doc, surface, now, state, handlers }: ModuleContext): HTM
     : null;
 
   return h(doc, 'div', { class: 'stack' },
-    compact ? null : panelHeader(doc, 'Coffre de clés', 'Garde la clé de vos appareils Synco hors de la page : le code PIN se saisit dans une fenêtre de l\'extension.'),
+    panelHeader(doc, 'Coffre de clés', 'Garde la clé de vos appareils Synco hors de la page : le code PIN se saisit dans une fenêtre de l\'extension.'),
     card(doc, { title: 'Accès aux sites Synco', icon: 'globe2' },
       h(doc, 'p', { class: 'muted', text: 'L\'extension ne répond qu\'à ces adresses exactes. Selon votre navigateur, cet accès doit être accordé par vous : sans lui, Synco ne peut pas utiliser l\'extension.' }),
       h(doc, 'div', { class: 'stack' }, loading ? skeleton(doc) : h(doc, 'ul', { class: 'list' }, ...hostRows)),

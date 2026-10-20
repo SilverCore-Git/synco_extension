@@ -17,6 +17,8 @@ export type Surface = 'popup' | 'options';
 export interface UiState {
   options: OptionsState;
   draft: TaskDraft | null;
+  /** « Comment ça marche ? » déplié dans le popup. */
+  help: boolean;
 }
 
 /** Actions déclenchées par l'interface. Les actions facultatives n'existent que sur certaines surfaces. */
@@ -27,6 +29,7 @@ export interface UiHandlers {
   confirmRemove(): void;
   toggleBroad?(): void;
   dismissDraft?(): void;
+  toggleHelp?(): void;
   /** Popup : ouvre la page d'options complète. */
   openFull?(): void;
 }

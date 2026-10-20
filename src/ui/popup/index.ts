@@ -16,6 +16,7 @@ const handlers: UiHandlers = {
   cancelRemove: () => model.cancelRemove(),
   confirmRemove: () => void model.confirmRemove(),
   dismissDraft: () => void drafts.dismiss().then(loadDraft),
+  toggleHelp: () => app.toggleHelp(),
   openFull: () => {
     void api.runtime.openOptionsPage();
     window.close();

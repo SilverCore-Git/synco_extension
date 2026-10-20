@@ -34,9 +34,11 @@ export function renderDraftCard(doc: Document, draft: TaskDraft, handlers: { dis
   );
 }
 
-function renderTasks({ doc, surface, state, handlers }: ModuleContext): HTMLElement {
+function renderTasks({ doc, surface, state, handlers }: ModuleContext): HTMLElement | null {
   const { draft, options } = state;
   const compact = surface === 'popup';
+  // Popup : minimaliste. Pas d'onglet « Tâches » tant qu'il n'y a rien à y faire ; il apparaît avec le brouillon.
+  if (compact && !draft) return null;
 
   const how = card(doc, { title: 'Créer une tâche depuis une page', icon: 'info-circle-fill' },
     h(doc, 'div', { class: 'row' },
@@ -60,7 +62,7 @@ function renderTasks({ doc, surface, state, handlers }: ModuleContext): HTMLElem
   return h(doc, 'div', { class: 'stack' },
     compact ? null : panelHeader(doc, 'Actions de page', 'Des raccourcis qui marchent sur tous les sites, sans jamais toucher au coffre de clés.'),
     draft ? renderDraftCard(doc, draft, { dismiss: handlers.dismissDraft ?? (() => undefined) }) : how,
-    draft ? how : null,
+    draft && !compact ? how : null,
     broad,
   );
 }

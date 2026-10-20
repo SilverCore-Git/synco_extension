@@ -38,7 +38,7 @@ export function renderShell(doc: Document, p: ShellProps): HTMLElement {
     'header',
     { class: 'topbar' },
     wordmark(doc),
-    h(doc, 'span', { class: 'chip chip-off', text: `v${p.version}` }),
+    p.surface === 'popup' ? null : h(doc, 'span', { class: 'chip chip-off', text: `v${p.version}` }),
     h(doc, 'span', { class: 'grow' }),
     p.surface === 'popup' && p.openFull ? iconButton(doc, 'gear-fill', 'Ouvrir tous les réglages', p.openFull) : null,
   );

@@ -19,8 +19,9 @@ export interface RunProps {
  * Dessine l'application à chaque changement d'état. Le contenu est reconstruit : on rend donc le focus au même
  * élément (onglet, bouton à identifiant) pour ne pas perdre le clavier à chaque rafraîchissement.
  */
-export function runApp(p: RunProps): { setDraft(draft: TaskDraft | null): void; setActive(id: string | null): void; redraw(): void } {
+export function runApp(p: RunProps): { setDraft(draft: TaskDraft | null): void; setActive(id: string | null): void; toggleHelp(): void; redraw(): void } {
   let draft: TaskDraft | null = null;
+  let help = false;
   let active = p.initialActive;
 
   const redraw = (): void => {
@@ -28,7 +29,7 @@ export function runApp(p: RunProps): { setDraft(draft: TaskDraft | null): void; 
     const page = renderApp({
       doc: document,
       surface: p.surface,
-      state: { options: p.model.current, draft },
+      state: { options: p.model.current, draft, help },
       handlers: p.handlers,
       version: p.model.current.version,
       active,
@@ -53,6 +54,10 @@ export function runApp(p: RunProps): { setDraft(draft: TaskDraft | null): void; 
     },
     setActive(id) {
       active = id;
+      redraw();
+    },
+    toggleHelp() {
+      help = !help;
       redraw();
     },
     redraw,

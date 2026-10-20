@@ -168,7 +168,7 @@ describe('modules : coffre et actions de page', () => {
     status: 'ready', error: null, notice: null, version: '1.2.3',
     hosts: [{ origin: ORIGIN, granted: true }], broad: false, groups: groupEntries([entry()], [ORIGIN]), confirm: null, busy: false, ...over,
   });
-  const ui = (over: Partial<OptionsState> = {}, draft: UiState['draft'] = null): UiState => ({ options: state(over), draft });
+  const ui = (over: Partial<OptionsState> = {}, draft: UiState['draft'] = null, help = false): UiState => ({ options: state(over), draft, help });
   const render = (s: UiState, h: UiHandlers = noop, surface: Surface = 'options', active: string | null = 'vault') =>
     asEl(renderApp({ doc: fakeDoc(), surface, state: s, handlers: h, version: '1.2.3', active, onSelect() {}, now: NOW }));
 
@@ -183,7 +183,7 @@ describe('modules : coffre et actions de page', () => {
     expect(t).toContain('pas protégée par du matériel');
   });
 
-  test('accès refusé : bouton « Accorder l\'accès » relié au gestionnaire, pastille ! sur l\'onglet', () => {
+  test('page complète, accès refusé : bouton « Accorder l\'accès » relié au gestionnaire, pastille ! sur l\'onglet', () => {
     let granted = 0;
     const root = render(ui({ hosts: [{ origin: ORIGIN, granted: false }] }), { ...noop, grantAccess: () => { granted++; } });
     expect(root.textContent).toContain('Accès refusé');
@@ -193,17 +193,37 @@ describe('modules : coffre et actions de page', () => {
     expect(render(ui()).findAll((e) => e.textContent === 'Accorder l\'accès')).toEqual([]);
   });
 
-  test('popup : contenu utile en version compacte, limites résumées, bouton vers les réglages complets', () => {
+  test('popup : un état clair, aucun identifiant ni adresse, bouton vers les réglages dans l\'en-tête', () => {
     let opened = 0;
     const root = render(ui(), { ...noop, openFull: () => { opened++; } }, 'popup');
-    expect(root.textContent).toContain('Accès accordé');
-    expect(root.textContent).toContain('Appareil 3f2b8c1e…');
-    expect(root.textContent).toContain('Après 10 erreurs de PIN');
-    expect(root.textContent).not.toContain('pas un gestionnaire de passkeys'); // détail réservé à la page complète
+    expect(root.textContent).toContain('Cet appareil est protégé');
+    for (const jargon of ['3f2b8c1e', 'https://', 'Appareil ', 'PIN de', 'Prêt', 'Accès accordé', 'Créé le']) expect(root.textContent).not.toContain(jargon);
     root.findAll((e) => e.tagName === 'button' && e.getAttribute('aria-label') === 'Ouvrir tous les réglages')[0]!.click();
     expect(opened).toBe(1);
-    // sans gestionnaire, pas de bouton orphelin
-    expect(render(ui(), noop, 'popup').findAll((e) => e.getAttribute('aria-label') === 'Ouvrir tous les réglages')).toEqual([]);
+    expect(render(ui(), noop, 'popup').findAll((e) => e.getAttribute('aria-label') === 'Ouvrir tous les réglages')).toEqual([]); // pas de bouton orphelin
+  });
+
+  test('popup : « Comment ça marche ? » déplie trois points simples et un lien vers le détail', () => {
+    let toggled = 0, opened = 0;
+    const handlers = { ...noop, toggleHelp: () => { toggled++; }, openFull: () => { opened++; } };
+    const closed = render(ui(), handlers, 'popup');
+    expect(closed.textContent).not.toContain('petite fenêtre');
+    buttonByText(closed, 'Comment ça marche ?').click();
+    expect(toggled).toBe(1);
+    const open = render(ui({}, null, true), handlers, 'popup');
+    expect(open.textContent).toContain('petite fenêtre de l\'extension, jamais sur le site');
+    expect(open.textContent).toContain('Après 10 erreurs de code');
+    expect(buttonByText(open, 'Masquer')).toBeDefined();
+    buttonByText(open, 'Plus de détails').click();
+    expect(opened).toBe(1);
+  });
+
+  test('popup : accès refusé : un seul bouton « Autoriser », relié au gestionnaire, pastille ! sur l\'onglet seulement s\'il y en a plusieurs', () => {
+    let granted = 0;
+    const root = render(ui({ hosts: [{ origin: ORIGIN, granted: false }] }), { ...noop, grantAccess: () => { granted++; } }, 'popup');
+    expect(root.textContent).toContain('Autorisation nécessaire');
+    buttonByText(root, 'Autoriser').click();
+    expect(granted).toBe(1);
   });
 
   test('actions de page : accès à tous les sites avec explications honnêtes, absent du popup', () => {

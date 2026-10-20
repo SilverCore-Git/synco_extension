@@ -7,7 +7,7 @@ import { h, type Child } from './dom';
 /** Icônes disponibles : les fichiers de assets/vendor/bootstrap-icons (voir scripts/make-ui-assets.mjs). */
 export type IconName =
   | 'shield-lock-fill' | 'shield-check' | 'key-fill' | 'globe2' | 'trash3' | 'gear-fill'
-  | 'info-circle-fill' | 'exclamation-triangle-fill' | 'x-circle-fill' | 'card-checklist';
+  | 'hourglass-split' | 'info-circle-fill' | 'exclamation-triangle-fill' | 'x-circle-fill' | 'card-checklist';
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'off';
 

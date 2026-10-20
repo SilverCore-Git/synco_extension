@@ -42,6 +42,11 @@ src/ui/
   popup/ options/ prompt/   pages d'entrée (popup et options : mêmes modules ; prompt : fenêtre du PIN)
 ```
 
+Le **popup** est pensé pour quelqu'un qui n'est pas technicien : un seul état lisible (icône, titre, une phrase), au plus
+une action, et « Comment ça marche ? » pour qui veut savoir. Pas d'identifiants, d'adresses ni de jargon ; le détail
+(clés, suppression, accès élargi) est dans la page d'options. Un module qui n'a rien d'utile à dire dans le popup
+renvoie `null` : il n'y a alors pas d'onglet (c'est le cas de « Tâches » tant qu'il n'y a pas de brouillon).
+
 Le **popup** (380 px) et la **page d'options** (colonne latérale) affichent les mêmes modules : un module reçoit
 `surface: 'popup' | 'options'` et adapte son contenu (version compacte dans le popup). Un module sans contenu sur une
 surface disparaît des onglets ; avec un seul module visible, il n'y a pas d'onglets. À l'ouverture du popup, c'est le

@@ -7,7 +7,7 @@ import { renderShell } from '../src/ui/shell';
 import { asEl, fakeDoc, type FakeElement } from './helpers/fakeDom';
 
 const opts: OptionsState = { status: 'ready', error: null, notice: null, version: '9.9.9', hosts: [], broad: false, groups: [], confirm: null, busy: false };
-const state: UiState = { options: opts, draft: null };
+const state: UiState = { options: opts, draft: null, help: false };
 const handlers = { grantAccess() {}, askRemove() {}, cancelRemove() {}, confirmRemove() {} };
 
 const mod = (id: string, over: Partial<UiModule> = {}): UiModule => ({
@@ -96,11 +96,12 @@ describe('interface modulaire', () => {
 
   test('en-tête : logo, version ; réglages complets seulement sur le popup avec gestionnaire', () => {
     const popup = asEl(renderShell(fakeDoc(), { surface: 'popup', version: '1.0.0', tabs: [], active: '', banners: [], onSelect() {}, openFull: () => {} }));
-    expect(popup.textContent).toContain('v1.0.0');
+    expect(popup.textContent).not.toContain('v1.0.0'); // pas de numéro de version dans le popup : réservé aux réglages
     expect(popup.findAll((e) => e.getAttribute('class') === 'wordmark')).toHaveLength(1);
     expect(popup.findAll((e) => e.getAttribute('aria-label') === 'Ouvrir tous les réglages')).toHaveLength(1);
     const options = asEl(renderShell(fakeDoc(), { surface: 'options', version: '1.0.0', tabs: [], active: '', banners: [], onSelect() {}, openFull: () => {} }));
     expect(options.findAll((e) => e.getAttribute('aria-label') === 'Ouvrir tous les réglages')).toEqual([]);
+    expect(options.textContent).toContain('v1.0.0');
   });
 
   test('registre réel : le coffre est le premier module, les actions de page le second', async () => {
@@ -113,9 +114,71 @@ describe('interface modulaire', () => {
   test('brouillon en attente : pastille sur l\'onglet Tâches, ouvert par défaut dans le popup', async () => {
     const { MODULES } = await import('../src/ui/registry');
     const draft = { v: 1 as const, text: 'Appeler', url: '', title: '', capturedAt: 0 };
-    const root = asEl(renderApp({ doc: fakeDoc(), surface: 'popup', state: { options: opts, draft }, handlers, version: '1', active: null, onSelect() {}, modules: MODULES, now: 0 }));
+    const root = asEl(renderApp({ doc: fakeDoc(), surface: 'popup', state: { options: opts, draft, help: false }, handlers, version: '1', active: null, onSelect() {}, modules: MODULES, now: 0 }));
     const selected = tabs(root).filter((t) => t.getAttribute('aria-selected') === 'true');
     expect(selected.map((t) => t.textContent)).toEqual(['Tâches1']);
     expect(root.textContent).toContain('Brouillon de tâche en attente');
+  });
+});
+
+describe('popup minimaliste', () => {
+  const popup = async (draft: UiState['draft'], over: Partial<OptionsState> = {}) => {
+    const { MODULES } = await import('../src/ui/registry');
+    return asEl(renderApp({ doc: fakeDoc(), surface: 'popup', state: { options: { ...opts, hosts: [{ origin: 'https://app.synco.one', granted: true }], ...over }, draft, help: false }, handlers, version: '1', active: null, onSelect() {}, modules: MODULES, now: 0 }));
+  };
+
+  test('sans brouillon : un seul module, donc aucun onglet ; avec brouillon : l\'onglet « Tâches » apparaît', async () => {
+    expect(tabs(await popup(null))).toEqual([]);
+    const withDraft = await popup({ v: 1, text: 'Appeler', url: '', title: '', capturedAt: 0 });
+    expect(tabs(withDraft).map((t) => t.textContent)).toEqual(['Coffre', 'Tâches1']);
+  });
+
+  test('page des réglages : les deux modules restent visibles', async () => {
+    const { MODULES } = await import('../src/ui/registry');
+    const root = asEl(renderApp({ doc: fakeDoc(), surface: 'options', state, handlers, version: '1', active: null, onSelect() {}, modules: MODULES, now: 0 }));
+    expect(tabs(root).map((t) => t.textContent)).toEqual(['Coffre', 'Tâches']);
+  });
+});
+
+describe('état du coffre dans le popup (vaultHero)', () => {
+  const NOW = 1_000_000;
+  const ORIGIN = 'https://app.synco.one';
+  const entry = (over: Record<string, unknown> = {}) => ({ origin: ORIGIN, deviceId: '3f2b8c1e-0000-4000-8000-000000000001', readable: true, createdAt: 1, failures: 0, lockedUntil: null, ...over });
+  const o = (over: Partial<OptionsState> = {}): OptionsState => ({ ...opts, hosts: [{ origin: ORIGIN, granted: true }], groups: [], ...over });
+  const group = (...entries: ReturnType<typeof entry>[]) => [{ origin: ORIGIN, active: true, entries: entries as never }];
+
+  test.each([
+    ['chargement', o({ status: 'loading' }), null],
+    ['extension qui ne répond pas', o({ status: 'error' }), null],
+    ['accès refusé', o({ hosts: [{ origin: ORIGIN, granted: false }], groups: group(entry()) }), { title: 'Autorisation nécessaire', action: 'grant', tone: 'warn' }],
+    ['aucune clé', o(), { title: 'Prête à protéger vos clés', action: null, tone: 'ok' }],
+    ['une clé', o({ groups: group(entry()) }), { title: 'Cet appareil est protégé', action: null, tone: 'ok' }],
+    ['deux clés', o({ groups: group(entry(), entry({ deviceId: '9a77c0de-0000-4000-8000-000000000002' })) }), { title: '2 appareils protégés', action: null, tone: 'ok' }],
+    ['clé illisible', o({ groups: group(entry({ readable: false })) }), { title: 'Une clé est illisible', action: 'manage', tone: 'warn' }],
+    ['clé verrouillée', o({ groups: group(entry({ lockedUntil: NOW + 90_000 })) }), { title: 'Trop d\'essais', action: null, tone: 'warn' }],
+  ] as const)('%s', async (_n, state, expected) => {
+    const { vaultHero } = await import('../src/ui/modules/vault');
+    const hero = vaultHero(state, NOW);
+    expect(hero === null ? null : { title: hero.title, action: hero.action, tone: hero.tone }).toEqual(expected);
+  });
+
+  test('priorité : l\'accès refusé passe avant tout ; l\'illisible avant le verrouillé ; l\'attente donne la durée', async () => {
+    const { vaultHero } = await import('../src/ui/modules/vault');
+    expect(vaultHero(o({ hosts: [{ origin: ORIGIN, granted: false }], groups: group(entry({ readable: false })) }), NOW)?.action).toBe('grant');
+    expect(vaultHero(o({ groups: group(entry({ readable: false }), entry({ lockedUntil: NOW + 5_000 })) }), NOW)?.title).toBe('Une clé est illisible');
+    expect(vaultHero(o({ groups: group(entry({ lockedUntil: NOW + 90_000 })) }), NOW)?.text).toBe('Réessayez dans 1 min 30 s.');
+  });
+
+  test('les clés d\'une origine inactive (ancienne version) ne comptent pas dans le popup', async () => {
+    const { vaultHero } = await import('../src/ui/modules/vault');
+    const inactive = [{ origin: 'https://ancien.example', active: false, entries: [entry({ readable: false })] as never }];
+    expect(vaultHero(o({ groups: inactive }), NOW)?.title).toBe('Prête à protéger vos clés');
+  });
+
+  test('aucun texte du popup ne montre un identifiant d\'appareil ni une adresse, même avec des données hostiles', async () => {
+    const { vaultHero } = await import('../src/ui/modules/vault');
+    const hostile = '<img src=x onerror=alert(1)>';
+    const hero = vaultHero(o({ groups: [{ origin: hostile, active: true, entries: [entry({ origin: hostile, deviceId: hostile })] as never }] }), NOW)!;
+    expect(`${hero.title} ${hero.text}`).not.toContain(hostile);
   });
 });
