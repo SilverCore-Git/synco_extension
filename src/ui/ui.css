@@ -227,25 +227,6 @@ body.popup { width: 380px; min-height: 220px; max-height: 580px; overflow-y: aut
 .wordmark::before { background: currentColor; -webkit-mask-image: var(--logo-letters); mask-image: var(--logo-letters); }
 .wordmark::after { background: #1dd796; -webkit-mask-image: var(--logo-dot); mask-image: var(--logo-dot); }
 
-/* ---- Fenêtre de saisie du PIN ---- */
-body.prompt-page { min-height: 100vh; }
-.prompt { max-width: 22rem; margin: 0 auto; padding: 1rem 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; }
-.prompt-head { display: flex; align-items: center; justify-content: space-between; }
-.prompt-head .wordmark { height: 1.15rem; }
-.prompt h1 { font-size: 1.3rem; font-weight: 900; line-height: 1.2; }
-
-.dots { display: flex; justify-content: center; align-items: center; gap: 0.65rem; min-height: 2.25rem; padding: 0.5rem; border-radius: var(--radius-sm); background: var(--bg2); border: 1px solid var(--border-color); }
-.dot { width: 0.8rem; height: 0.8rem; border-radius: 50%; background: var(--primary); box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.5); }
-.dots .placeholder { color: var(--text2); font-size: 0.8rem; }
-
-.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
-.keypad button { min-height: 3.2rem; font-size: 1.3rem; font-weight: 600; border-color: transparent; background: color-mix(in srgb, var(--text) 6%, transparent); }
-.keypad button:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 18%, transparent); }
-.keypad button.aux { font-size: 0.85rem; font-weight: 500; color: var(--text2); }
-.countdown { text-align: right; font-variant-numeric: tabular-nums; }
-.prompt .fine { font-size: 0.75rem; color: var(--text2); display: flex; gap: 0.5rem; }
-.prompt .fine .bi { margin-top: 0.15rem; }
-
 /* ---- Scène de connexion : l'application Synco et l'extension, reliées par un lien animé ---- */
 .scene { --track: 5.5rem; display: flex; align-items: flex-start; justify-content: center; gap: 0; padding: 0.4rem 0 0.2rem; }
 .node { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 4.5rem; }
@@ -285,31 +266,6 @@ body.prompt-page { min-height: 100vh; }
 .scene[data-state="error"] .track { border-top-color: color-mix(in srgb, var(--danger) 60%, transparent); border-top-style: dotted; }
 .scene[data-state="error"] .ext-icon { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--bg2)); border-color: color-mix(in srgb, var(--danger) 45%, transparent); animation: shake 0.45s; }
 
-/* ---- Fenêtre du PIN : titres, saisie animée ---- */
-.heading { text-align: center; }
-.heading .hint { margin-top: 0.3rem; font-size: 0.82rem; color: var(--text2); }
-.prompt h1 { font-size: 1.25rem; }
-.form { display: flex; flex-direction: column; gap: 0.75rem; animation: rise 0.3s ease both; }
-.dots { min-height: 2.75rem; gap: 0.7rem; }
-.dots .slot { width: 0.8rem; height: 0.8rem; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 25%, transparent); }
-.dots .dot { animation: pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.dots.shake-a { animation: shake 0.45s; }
-.dots.shake-b { animation: shake 0.45s 0.001s; }
-.keypad button:active:not(:disabled) { background: color-mix(in srgb, var(--primary) 30%, transparent); }
-@media (prefers-reduced-motion: reduce) {
-  .packet, .ext-icon::after, .link-check, .form, .dots .dot, .dots.shake-a, .dots.shake-b { animation: none !important; }
-  .scene[data-state="success"] .link-check { transform: scale(1); }
-}
-
-/* Fenêtre du PIN : gabarit resserré pour que tout tienne sans défilement, réussite centrée et agrandie */
-.prompt { gap: 0.7rem; padding-top: 0.75rem; }
-.keypad { gap: 0.4rem; }
-.keypad button { min-height: 2.9rem; font-size: 1.2rem; }
-.prompt[data-phase="done"] { justify-content: center; min-height: 100vh; padding-top: 0; padding-bottom: 3rem; }
-.prompt[data-phase="done"] .scene { transform: scale(1.3); margin-bottom: 1.2rem; transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.prompt[data-phase="done"] .prompt-head { position: absolute; top: 0.75rem; left: 0; right: 0; padding: 0 1rem; }
-.prompt[data-phase="done"] h1 { font-size: 1.5rem; }
-
 /* ---- Popup : état du coffre en un coup d'œil ---- */
 .hero { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 1.5rem 1rem 1.25rem; text-align: center; border-radius: var(--radius); border: 1px solid var(--border-color); background: var(--bg2); }
 .hero-icon { display: grid; place-items: center; width: 3.6rem; height: 3.6rem; margin-bottom: 0.25rem; border-radius: 1.15rem; font-size: 1.8rem; color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); animation: pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
@@ -324,18 +280,42 @@ body.prompt-page { min-height: 100vh; }
 .more { margin-top: 0.75rem; }
 @media (prefers-reduced-motion: reduce) { .hero-icon { animation: none; } }
 
-/* Fenêtre du PIN compacte : tient dans une fenêtre basse, à côté de la carte de Synco */
-.prompt { gap: 0.6rem; padding: 0.7rem 1rem 0.9rem; }
-.prompt .scene { padding: 0; }
-.prompt .app-icon, .prompt .ext-icon { width: 2.9rem; height: 2.9rem; border-radius: 0.9rem; }
-.prompt .ext-icon { font-size: 1.35rem; }
-.prompt .link { height: 2.9rem; }
-.prompt .node { gap: 0.25rem; }
-.prompt .node-label { font-size: 0.65rem; }
-.prompt h1 { font-size: 1.15rem; }
-.heading .hint { margin-top: 0.15rem; font-size: 0.78rem; }
-.dots { min-height: 2.3rem; padding: 0.35rem; }
-.keypad { gap: 0.35rem; }
-.keypad button { min-height: 2.5rem; font-size: 1.1rem; }
-.prompt .actions button { min-height: 2.4rem; }
-.prompt .countdown { margin-top: -0.2rem; }
+/* ---- Fenêtre du PIN : même charte que la carte de l'application (scène, grands titres, gabarit aéré) ---- */
+body.prompt-page { min-height: 100vh; background: var(--bg2); }
+.prompt { min-height: 100vh; max-width: 26rem; margin: 0 auto; padding: 1.4rem 1.6rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+.prompt-head { display: flex; align-items: center; justify-content: space-between; }
+.prompt-head .wordmark { height: 1.2rem; }
+.prompt .scene { padding: 0.5rem 0 0; }
+.heading { text-align: center; }
+.heading h1 { font-size: 1.4rem; font-weight: 900; line-height: 1.2; }
+.heading .hint { margin-top: 0.4rem; font-size: 0.88rem; line-height: 1.5; color: var(--text2); }
+
+/* Le formulaire occupe la hauteur disponible : le pavé s'étire plutôt que de laisser un trou, et garde un plancher lisible. */
+.form { flex: 1; display: flex; flex-direction: column; gap: 0.9rem; animation: rise 0.3s ease both; }
+.dots { display: flex; justify-content: center; align-items: center; gap: 0.8rem; min-height: 3rem; padding: 0.5rem; border-radius: 1rem; background: var(--bg); border: 1px solid var(--border-color); }
+.dot, .dots .slot { width: 0.9rem; height: 0.9rem; border-radius: 50%; }
+.dot { background: var(--primary); box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.5); animation: pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.dots .slot { border: 2px solid color-mix(in srgb, var(--text) 25%, transparent); }
+.dots.shake-a { animation: shake 0.45s; }
+.dots.shake-b { animation: shake 0.45s 0.001s; }
+
+.keypad { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(2.7rem, 1fr); gap: 0.5rem; }
+.keypad button { min-height: 0; font-size: 1.35rem; font-weight: 600; border-color: transparent; border-radius: 0.9rem; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.keypad button:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 18%, transparent); }
+.keypad button:active:not(:disabled) { background: color-mix(in srgb, var(--primary) 30%, transparent); }
+.keypad button.aux { font-size: 0.85rem; font-weight: 500; color: var(--text2); }
+.prompt .actions button { min-height: 2.9rem; font-weight: 600; }
+.countdown { text-align: center; font-variant-numeric: tabular-nums; }
+.prompt .fine { display: flex; gap: 0.5rem; font-size: 0.75rem; line-height: 1.45; color: var(--text2); }
+.prompt .fine .bi { margin-top: 0.15rem; }
+
+/* Réussite : la scène grandit au centre, le reste s'efface */
+.prompt[data-phase="done"] { justify-content: center; padding-bottom: 3.5rem; }
+.prompt[data-phase="done"] .prompt-head { position: absolute; top: 1.4rem; left: 1.6rem; right: 1.6rem; }
+.prompt[data-phase="done"] .scene { transform: scale(1.3); margin-bottom: 1.4rem; transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.prompt[data-phase="done"] .heading h1 { font-size: 1.6rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .packet, .ext-icon::after, .link-check, .form, .dot, .dots.shake-a, .dots.shake-b { animation: none !important; }
+  .scene[data-state="success"] .link-check { transform: scale(1); }
+}

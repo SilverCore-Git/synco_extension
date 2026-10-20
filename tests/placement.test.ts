@@ -35,7 +35,7 @@ describe('placement de la fenêtre du PIN', () => {
 });
 
 describe('placement côte à côte avec la carte de Synco', () => {
-  const W = { width: 400, height: 560 };
+  const W = { width: 420, height: 660 };
   const parent = { left: 100, top: 50, width: 1400, height: 900 };
 
   test('à droite de la carte : la paire (carte + écart + fenêtre) est centrée sur le navigateur', () => {
@@ -48,9 +48,9 @@ describe('placement côte à côte avec la carte de Synco', () => {
 
   test('verticalement : centrée sur la page visible (sous la barre d\'outils), pas sur le cadre du navigateur', () => {
     const framed = besideApp(parent, undefined, W)!;
-    expect(framed.top).toBe(50 + 450 - 280); // sans zone visible connue : centre du cadre
+    expect(framed.top).toBe(50 + 450 - 330); // sans zone visible connue : centre du cadre
     const viewport = besideApp(parent, { width: 1400, height: 800 }, W)!;
-    expect(viewport.top).toBe(50 + 100 + 400 - 280); // 100 px de barre d'outils au-dessus de la page
+    expect(viewport.top).toBe(50 + 100 + 400 - 330); // 100 px de barre d'outils au-dessus de la page
     expect(viewport.top).toBeGreaterThan(framed.top);
   });
 
@@ -78,7 +78,7 @@ describe('placement côte à côte avec la carte de Synco', () => {
     expect(pos.left).toBeLessThan(0);
   });
 
-  test('la fenêtre du PIN est basse : 560 px', () => {
-    expect(PROMPT_WINDOW.height).toBe(560);
+  test('la fenêtre du PIN : 420 × 660 px (le pavé s\'étire jusqu\'à la hauteur disponible)', () => {
+    expect(PROMPT_WINDOW).toEqual({ width: 420, height: 660 });
   });
 });

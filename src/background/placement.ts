@@ -8,7 +8,7 @@ export interface Bounds {
 }
 
 /** Dimensions de la fenêtre de saisie du PIN : une colonne étroite, assez haute pour le pavé sans défilement. */
-export const PROMPT_WINDOW = { width: 400, height: 560 } as const;
+export const PROMPT_WINDOW = { width: 420, height: 660 } as const;
 
 /**
  * Disposition « côte à côte » : la carte de Synco (page) et la fenêtre de l'extension forment une paire centrée sur la

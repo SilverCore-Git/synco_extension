@@ -31,6 +31,13 @@ describe('fenêtre de saisie : affichage', () => {
     expect(root.findAll((e) => ['img', 'script', 'iframe'].includes(e.tagName))).toEqual([]);
   });
 
+  test('repère de provenance : la fenêtre se présente comme celle de l\'extension (logo et nom), sans rien de la page', () => {
+    const { v, root } = make();
+    v.update(base);
+    expect(root.findAll((e) => e.getAttribute('class') === 'wordmark')).toHaveLength(1);
+    expect(all(root)).toContain('Synco Extension');
+  });
+
   test('pavé numérique : 0 à 9, effacer, retour arrière, avec libellés accessibles', () => {
     const { v, root, calls } = make();
     v.update(base);

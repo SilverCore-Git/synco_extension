@@ -1,6 +1,6 @@
 import { formatClock, formatDuration } from '../format';
 import { h } from '../dom';
-import { banner, icon } from '../kit';
+import { banner, icon, wordmark } from '../kit';
 import type { Phase, PromptView } from './controller';
 
 export interface PromptHandlers {
@@ -98,7 +98,9 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
   const closeBtn = h(doc, 'button', { class: 'primary', text: 'Fermer', attrs: { type: 'button' }, on: { click: handlers.close } });
   const closeRow = h(doc, 'div', { class: 'actions fill' }, closeBtn);
 
-  const root = h(doc, 'main', { class: 'prompt', attrs: { 'aria-live': 'polite' } }, scene.root, h(doc, 'div', { class: 'heading' }, title, hint), replacing, error, form, closeRow);
+  // Repère de provenance : la fenêtre se présente comme celle de l'extension (le contenu de la page n'y entre jamais).
+  const head = h(doc, 'header', { class: 'prompt-head' }, wordmark(doc), h(doc, 'span', { class: 'chip chip-off', text: 'Synco Extension' }));
+  const root = h(doc, 'main', { class: 'prompt', attrs: { 'aria-live': 'polite' } }, head, scene.root, h(doc, 'div', { class: 'heading' }, title, hint), replacing, error, form, closeRow);
 
   function update(view: PromptView): void {
     const showForm = view.phase === 'enter' || view.phase === 'confirm' || view.phase === 'verifying';
