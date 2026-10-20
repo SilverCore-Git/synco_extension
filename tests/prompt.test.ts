@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { PromptManager, type PromptRequest } from '../src/background/prompt';
+import { PromptManager, SUCCESS_LINGER_MS, type PromptRequest } from '../src/background/prompt';
 import { MemoryLimiterStore, SlidingWindowLimiter } from '../src/background/rateLimit';
 import { VaultError } from '../src/vault/errors';
 import { FakeHost, FakeTimers, until } from './helpers/bgFixtures';
@@ -211,6 +211,8 @@ describe('saisie du PIN', () => {
     expect(await prompts.submit(host.sessionId, '1234')).toEqual({ ok: true });
     expect(await p).toBe('ok');
     timers.advance(100);
+    expect(host.closed).toHaveLength(0); // la page d'invite montre sa réussite avant de se fermer
+    timers.advance(SUCCESS_LINGER_MS);
     expect(host.closed).toEqual([host.opened[0]!.windowId]);
   });
 

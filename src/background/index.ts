@@ -8,6 +8,7 @@ import { BUILT_IN_ORIGINS } from '../shared/origins';
 import { errorResponse, PROMPT_PAGE } from '../shared/protocol';
 import { IdbDeviceSecret } from '../vault/idbSecret';
 import { Vault } from '../vault/vault';
+import { centerOver, PROMPT_WINDOW } from './placement';
 import { PromptManager, type PromptHost } from './prompt';
 import { MemoryLimiterStore, SlidingWindowLimiter } from './rateLimit';
 import { Router } from './router';
@@ -18,11 +19,13 @@ const vault = new Vault({ storage: new ExtensionVaultStorage(api.storage.local a
 
 const host: PromptHost = {
   async openWindow(sessionId) {
+    // Centrée sur la fenêtre du navigateur qui a fait la demande ; sans coordonnées sûres, le navigateur choisit.
+    const position = centerOver(await api.windows.getLastFocused().catch(() => undefined)) ?? {};
     const w = await api.windows.create({
       url: api.runtime.getURL(`${PROMPT_PAGE}?s=${sessionId}`),
       type: 'popup',
-      width: 400,
-      height: 660,
+      ...PROMPT_WINDOW,
+      ...position,
       focused: true,
     });
     if (w?.id === undefined) throw new Error('fenêtre non créée');

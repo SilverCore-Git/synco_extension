@@ -21,6 +21,9 @@ const realTimers: Timers = {
   clear: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
 };
 
+/** Délai laissé à la page d'invite pour montrer la réussite avant que le worker ne ferme la fenêtre. */
+export const SUCCESS_LINGER_MS = 2500;
+
 export interface PromptRequest<T> {
   origin: string;
   tabId: number;
@@ -228,7 +231,9 @@ export class PromptManager {
     const windowId = s.windowId;
     if (windowId === null) return;
     const closeIt = () => void this.deps.host.closeWindow(windowId).catch(() => undefined);
-    if (close) this.timers.set(closeIt, 50);
+    // Réussite : la page d'invite affiche sa réussite puis se ferme d'elle-même ; ceci n'est que le filet de sécurité.
+    if (how === 'resolve') this.timers.set(closeIt, SUCCESS_LINGER_MS);
+    else if (close) this.timers.set(closeIt, 50);
     else this.timers.set(closeIt, 15_000);
   }
 }
