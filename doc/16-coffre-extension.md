@@ -122,6 +122,12 @@ Ce que la fenêtre affiche : une scène (l'application Synco et l'extension reli
 emplacement de saisie, un pavé numérique (clavier physique accepté), « Annuler », et en une ligne les limites (vérifié
 par l'extension, effacement après 10 erreurs).
 
+**Placement.** La fenêtre (400 × 560 px) s'ouvre à droite de la carte que l'application affiche pendant la demande, au même
+niveau : la paire est centrée sur la page (disposition convenue avec l'application, qui décale sa carte d'autant). Le
+centre vertical est celui de la zone visible de l'onglet. Sur une page de moins de 880 px de large, ou sans coordonnées
+fiables (fenêtre minimisée, plein écran), elle se centre sur le navigateur ou laisse le navigateur choisir. Certains
+gestionnaires de fenêtres (Wayland) ignorent la position demandée.
+
 **Rien de ce que la page fournit n'est affiché**, ni l'origine ni la raison. L'origine n'informe pas l'utilisateur : elle
 est forcément l'une des adresses exactes de la liste blanche (une seule en production), et la menace M2 ne change pas
 avec : un script injecté dans l'application *est* sur la bonne origine. Un texte venu de la page dans une fenêtre de

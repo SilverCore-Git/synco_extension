@@ -167,7 +167,7 @@ Firefox : un module temporaire est supprimé à la fermeture du navigateur ; R29
 | R59b | « Comment ça marche ? » dans le popup | Trois phrases simples s'affichent ; « Plus de détails » ouvre la page des réglages ; « Masquer » les referme | | |
 | R60 | Roue dentée du popup | Ouvre la page d'options ; colonne latérale avec les mêmes onglets ; l'adresse change (`#vault`, `#tasks`) | | |
 | R61 | Page d'options réduite à moins de 720 px de large | Onglets en barre horizontale au-dessus du contenu, pas de défilement horizontal | | |
-| R62 | Fenêtre du PIN | Logo, carte « Demandé par » avec l'origine, points verts, pavé ; aucun bandeau vide ; erreur visible après un mauvais PIN | | |
+| R62 | Fenêtre du PIN | Basse (environ 560 px), sans défilement : scène Synco ↔ extension, titre, emplacements de saisie, pavé, boutons, une ligne de limites ; aucun bandeau vide ; erreur visible après un mauvais PIN ; ouverte à droite de la carte de Synco si la page fait 880 px ou plus | | |
 | R63 | Navigation au clavier (Tab) dans le popup, la page d'options et la fenêtre du PIN | Anneau de focus vert visible partout ; la suppression d'une clé ne prend jamais le focus par défaut (« Annuler » d'abord) | | |
 | R64 | Système réglé sur « réduire les animations » | Pas d'animation de chargement ni de transition | | |
 
