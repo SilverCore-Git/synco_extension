@@ -323,3 +323,19 @@ body.prompt-page { min-height: 100vh; }
 .help-row button { color: var(--text2); }
 .more { margin-top: 0.75rem; }
 @media (prefers-reduced-motion: reduce) { .hero-icon { animation: none; } }
+
+/* Fenêtre du PIN compacte : tient dans une fenêtre basse, à côté de la carte de Synco */
+.prompt { gap: 0.6rem; padding: 0.7rem 1rem 0.9rem; }
+.prompt .scene { padding: 0; }
+.prompt .app-icon, .prompt .ext-icon { width: 2.9rem; height: 2.9rem; border-radius: 0.9rem; }
+.prompt .ext-icon { font-size: 1.35rem; }
+.prompt .link { height: 2.9rem; }
+.prompt .node { gap: 0.25rem; }
+.prompt .node-label { font-size: 0.65rem; }
+.prompt h1 { font-size: 1.15rem; }
+.heading .hint { margin-top: 0.15rem; font-size: 0.78rem; }
+.dots { min-height: 2.3rem; padding: 0.35rem; }
+.keypad { gap: 0.35rem; }
+.keypad button { min-height: 2.5rem; font-size: 1.1rem; }
+.prompt .actions button { min-height: 2.4rem; }
+.prompt .countdown { margin-top: -0.2rem; }

@@ -282,7 +282,7 @@ export class PromptController {
     if (!info || (this.phase !== 'enter' && this.phase !== 'confirm')) return '';
     if (info.mode === 'load') return 'Pour déverrouiller vos messages sur cet appareil.';
     if (this.phase === 'confirm') return 'Saisissez le même code une seconde fois.';
-    return `${info.minPin} chiffres au minimum. Ce code protège la clé de cet appareil ; il n'est jamais envoyé à Synco.`;
+    return `${info.minPin} chiffres au minimum. Il protège la clé de cet appareil.`;
   }
 
   private notify(): void {

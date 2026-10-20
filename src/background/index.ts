@@ -8,7 +8,7 @@ import { BUILT_IN_ORIGINS } from '../shared/origins';
 import { errorResponse, PROMPT_PAGE } from '../shared/protocol';
 import { IdbDeviceSecret } from '../vault/idbSecret';
 import { Vault } from '../vault/vault';
-import { centerOver, PROMPT_WINDOW } from './placement';
+import { besideApp, centerOver, PROMPT_WINDOW } from './placement';
 import { PromptManager, type PromptHost } from './prompt';
 import { MemoryLimiterStore, SlidingWindowLimiter } from './rateLimit';
 import { Router } from './router';
@@ -18,9 +18,12 @@ const secret = new IdbDeviceSecret();
 const vault = new Vault({ storage: new ExtensionVaultStorage(api.storage.local as StorageAreaLike), secret });
 
 const host: PromptHost = {
-  async openWindow(sessionId) {
-    // Centrée sur la fenêtre du navigateur qui a fait la demande ; sans coordonnées sûres, le navigateur choisit.
-    const position = centerOver(await api.windows.getLastFocused().catch(() => undefined)) ?? {};
+  async openWindow(sessionId, tabId) {
+    // À droite de la carte de Synco (côte à côte) si la page est assez large, sinon centrée sur le navigateur ;
+    // sans coordonnées sûres, le navigateur choisit.
+    const parent = await api.windows.getLastFocused().catch(() => undefined);
+    const tab = await api.tabs.get(tabId).catch(() => undefined);
+    const position = besideApp(parent, tab) ?? centerOver(parent) ?? {};
     const w = await api.windows.create({
       url: api.runtime.getURL(`${PROMPT_PAGE}?s=${sessionId}`),
       type: 'popup',

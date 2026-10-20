@@ -5,7 +5,8 @@ import type { SlidingWindowLimiter } from './rateLimit';
 
 /** Ce dont le gestionnaire d'invite a besoin du navigateur (adaptateur réel dans index.ts, simulé en test). */
 export interface PromptHost {
-  openWindow(sessionId: string): Promise<number>;
+  /** `tabId` : l'onglet de la page qui a fait la demande, pour placer la fenêtre à côté de sa carte. */
+  openWindow(sessionId: string, tabId: number): Promise<number>;
   closeWindow(windowId: number): Promise<void>;
   onWindowRemoved(cb: (windowId: number) => void): void;
   onTabRemoved(cb: (tabId: number) => void): void;
@@ -134,7 +135,7 @@ export class PromptManager {
 
     const session = this.session!;
     // Ouverture en parallèle : l'appelant n'attend pas la fenêtre pour être averti d'une annulation ou d'une erreur.
-    this.deps.host.openWindow(id).then(
+    this.deps.host.openWindow(id, req.tabId).then(
       (windowId) => {
         session.windowId = windowId;
         if (session.settled) void this.deps.host.closeWindow(windowId).catch(() => undefined); // annulée pendant l'ouverture

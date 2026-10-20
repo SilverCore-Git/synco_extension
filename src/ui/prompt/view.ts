@@ -1,6 +1,6 @@
 import { formatClock, formatDuration } from '../format';
 import { h } from '../dom';
-import { banner, icon, wordmark } from '../kit';
+import { banner, icon } from '../kit';
 import type { Phase, PromptView } from './controller';
 
 export interface PromptHandlers {
@@ -11,6 +11,9 @@ export interface PromptHandlers {
   cancel(): void;
   close(): void;
 }
+
+/** Secondes restantes à partir desquelles l'expiration est annoncée. */
+export const COUNTDOWN_FROM = 30;
 
 /** État de la scène de connexion (Synco ↔ extension), déduit de la phase de la fenêtre. */
 export type SceneState = 'connecting' | 'waiting' | 'working' | 'success' | 'error';
@@ -95,8 +98,7 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
   const closeBtn = h(doc, 'button', { class: 'primary', text: 'Fermer', attrs: { type: 'button' }, on: { click: handlers.close } });
   const closeRow = h(doc, 'div', { class: 'actions fill' }, closeBtn);
 
-  const head = h(doc, 'header', { class: 'prompt-head' }, wordmark(doc), h(doc, 'span', { class: 'chip chip-off', text: 'Coffre de clés' }));
-  const root = h(doc, 'main', { class: 'prompt', attrs: { 'aria-live': 'polite' } }, head, scene.root, h(doc, 'div', { class: 'heading' }, title, hint), replacing, error, form, closeRow);
+  const root = h(doc, 'main', { class: 'prompt', attrs: { 'aria-live': 'polite' } }, scene.root, h(doc, 'div', { class: 'heading' }, title, hint), replacing, error, form, closeRow);
 
   function update(view: PromptView): void {
     const showForm = view.phase === 'enter' || view.phase === 'confirm' || view.phase === 'verifying';
@@ -131,12 +133,14 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     submitBtn.disabled = !view.canSubmit;
     cancelBtn.disabled = false;
 
+    // Le compte à rebours n'apparaît que quand il devient utile (la fenêtre est petite : pas de ligne permanente).
     countdown.textContent =
       view.lockSeconds !== null
         ? `Prochain essai possible dans ${formatDuration(view.lockSeconds)}.`
-        : view.remainingSeconds !== null
+        : view.remainingSeconds !== null && view.remainingSeconds <= COUNTDOWN_FROM
           ? `Cette demande expire dans ${formatClock(view.remainingSeconds)}.`
           : '';
+    countdown.hidden = countdown.textContent === '';
   }
 
   return { root, update };

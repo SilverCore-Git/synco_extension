@@ -136,6 +136,18 @@ describe('fenêtre de saisie : affichage', () => {
     expect(all(root)).toContain('Déverrouillé');
   });
 
+  test('compte à rebours : seulement dans les dernières secondes ; l\'attente après trop d\'essais, toujours', () => {
+    const { v, root } = make();
+    const line = () => root.findAll((e) => (e.getAttribute('class') ?? '').includes('countdown'))[0]!;
+    v.update({ ...base, remainingSeconds: 90 });
+    expect(line().hidden).toBe(true);
+    v.update({ ...base, remainingSeconds: 25 });
+    expect(line().hidden).toBe(false);
+    expect(line().textContent).toBe('Cette demande expire dans 00:25.');
+    v.update({ ...base, remainingSeconds: 90, lockSeconds: 30 });
+    expect(line().textContent).toContain('Prochain essai possible dans 30 s');
+  });
+
   test('succès : le formulaire n\'est plus affiché, pas de bouton Fermer', () => {
     const { v, root } = make();
     v.update({ ...base, phase: 'done', keypadEnabled: false, canSubmit: false });
