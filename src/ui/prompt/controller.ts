@@ -268,7 +268,8 @@ export class PromptController {
       case 'expired':
         return 'Demande expirée';
       case 'verifying':
-        return create ? 'Chiffrement de la clé…' : 'Vérification du code…';
+        // Le titre ne change pas pendant la vérification : le bouton dit « Vérification… ».
+        return create ? 'Confirmez votre code' : 'Entrez votre code PIN';
       default:
         if (create) return this.phase === 'confirm' ? 'Confirmez votre code' : 'Choisissez un code PIN';
         return 'Entrez votre code PIN';
@@ -278,11 +279,11 @@ export class PromptController {
   private hint(): string {
     const info = this.info;
     if (this.phase === 'done') return 'Vous pouvez retourner sur Synco.';
-    if (this.phase === 'verifying') return 'Un instant…';
+    if (this.phase === 'verifying') return '';
     if (!info || (this.phase !== 'enter' && this.phase !== 'confirm')) return '';
-    if (info.mode === 'load') return 'Pour déverrouiller vos messages sur cet appareil.';
+    if (info.mode === 'load') return 'Pour ouvrir Synco sur cet appareil.';
     if (this.phase === 'confirm') return 'Saisissez le même code une seconde fois.';
-    return `${info.minPin} chiffres au minimum. Il protège la clé de cet appareil.`;
+    return `${info.minPin} chiffres au minimum.`;
   }
 
   private notify(): void {

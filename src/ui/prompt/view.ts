@@ -15,7 +15,7 @@ export interface PromptHandlers {
 /** Secondes restantes à partir desquelles l'expiration est annoncée. */
 export const COUNTDOWN_FROM = 30;
 
-/** État de la scène de connexion (Synco ↔ extension), déduit de la phase de la fenêtre. */
+/** État affiché par la marque d'état au-dessus du titre, déduit de la phase de la fenêtre. */
 export type SceneState = 'connecting' | 'waiting' | 'working' | 'success' | 'error';
 
 export function sceneState(phase: Phase): SceneState {
@@ -35,18 +35,17 @@ export function sceneState(phase: Phase): SceneState {
 }
 
 /**
- * Scène de connexion : l'application Synco et l'extension, reliées par un lien animé. Elle raconte ce qui se passe
- * (en attente du code, vérification, réussite, échec) ; les animations sont purement visuelles (CSS).
+ * Marque d'état, sobre : rien pendant la saisie (le pavé suffit), un indicateur pendant la connexion, une coche à la
+ * réussite, une croix à l'échec. Aucune animation décorative.
  */
-function createScene(doc: Document): { root: HTMLElement; set(state: SceneState): void } {
-  const packets = [0, 1, 2].map((i) => h(doc, 'span', { class: 'packet', attrs: { 'data-i': String(i), 'aria-hidden': 'true' } }));
+function createStatus(doc: Document): { root: HTMLElement; set(state: SceneState): void } {
   const root = h(
     doc,
     'div',
-    { class: 'scene', attrs: { role: 'img', 'aria-label': 'Connexion entre Synco et l\'extension' } },
-    h(doc, 'div', { class: 'node node-app' }, h(doc, 'span', { class: 'app-icon', attrs: { 'aria-hidden': 'true' } }), h(doc, 'span', { class: 'node-label', text: 'Synco' })),
-    h(doc, 'div', { class: 'link', attrs: { 'aria-hidden': 'true' } }, h(doc, 'span', { class: 'track' }), ...packets, h(doc, 'span', { class: 'link-check' }, icon(doc, 'shield-check'))),
-    h(doc, 'div', { class: 'node node-ext' }, h(doc, 'span', { class: 'ext-icon' }, icon(doc, 'shield-lock-fill')), h(doc, 'span', { class: 'node-label', text: 'Extension' })),
+    { class: 'status', attrs: { 'aria-hidden': 'true' } },
+    h(doc, 'span', { class: 'status-spin' }),
+    h(doc, 'span', { class: 'status-check' }),
+    h(doc, 'span', { class: 'status-error' }, icon(doc, 'x-circle-fill')),
   );
   root.setAttribute('data-state', 'connecting');
   return { root, set: (state) => root.setAttribute('data-state', state) };
@@ -59,15 +58,15 @@ function createScene(doc: Document): { root: HTMLElement; set(state: SceneState)
  * dans une fenêtre de sécurité ne ferait qu'ouvrir la porte à l'hameçonnage.
  */
 export function createPromptView(doc: Document, handlers: PromptHandlers): { root: HTMLElement; update(view: PromptView): void } {
-  const scene = createScene(doc);
+  const status = createStatus(doc);
   const title = h(doc, 'h1', { attrs: { id: 'title' } });
   const hint = h(doc, 'p', { class: 'hint' });
 
   const replacing = banner(doc, 'warn', 'Un enregistrement existe déjà pour cet appareil : il sera remplacé.');
-  const errorText = h(doc, 'span');
-  const error = h(doc, 'p', { class: 'banner error', attrs: { role: 'alert', 'aria-live': 'polite' } }, icon(doc, 'x-circle-fill'), errorText);
 
   const dots = h(doc, 'div', { class: 'dots', attrs: { role: 'img' } });
+  // L'erreur prend la place d'une ligne réservée sous les points : rien ne saute quand elle apparaît.
+  const error = h(doc, 'p', { class: 'pin-error', attrs: { role: 'alert', 'aria-live': 'polite' } });
 
   const keyButtons: HTMLButtonElement[] = [];
   const key = (label: string, aria: string, onClick: () => void, cls?: string) => {
@@ -80,7 +79,7 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     'div',
     { class: 'keypad', attrs: { role: 'group', 'aria-label': 'Pavé numérique' } },
     ...['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => key(d, `Chiffre ${d}`, () => handlers.press(d))),
-    key('Effacer', 'Tout effacer', handlers.clear, 'aux'),
+    h(doc, 'span', { attrs: { 'aria-hidden': 'true' } }),
     key('0', 'Chiffre 0', () => handlers.press('0')),
     key('⌫', 'Supprimer le dernier chiffre', handlers.backspace, 'aux'),
   );
@@ -90,30 +89,38 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
   const actions = h(doc, 'div', { class: 'actions fill' }, cancelBtn, submitBtn);
 
   const countdown = h(doc, 'p', { class: 'muted countdown' });
-  const limits = h(doc, 'p', { class: 'fine' }, icon(doc, 'shield-check'), h(doc, 'span', {
-    text: 'Vérifié par l\'extension, pas par le site. Après 10 erreurs, la clé de cet appareil est effacée.',
-  }));
-  const form = h(doc, 'div', { class: 'form' }, dots, keypad, actions, countdown, limits);
+  const fine = h(doc, 'p', { class: 'fine', text: 'Après 10 erreurs, la clé de cet appareil est effacée.' });
+  const form = h(doc, 'div', { class: 'form' }, dots, error, keypad, actions, countdown, fine);
 
   const closeBtn = h(doc, 'button', { class: 'primary', text: 'Fermer', attrs: { type: 'button' }, on: { click: handlers.close } });
   const closeRow = h(doc, 'div', { class: 'actions fill' }, closeBtn);
 
   // Repère de provenance : la fenêtre se présente comme celle de l'extension (le contenu de la page n'y entre jamais).
-  const head = h(doc, 'header', { class: 'prompt-head' }, wordmark(doc), h(doc, 'span', { class: 'chip chip-off', text: 'Synco Extension' }));
-  const root = h(doc, 'main', { class: 'prompt', attrs: { 'aria-live': 'polite' } }, head, scene.root, h(doc, 'div', { class: 'heading' }, title, hint), replacing, error, form, closeRow);
+  const head = h(doc, 'header', { class: 'prompt-head' }, wordmark(doc), h(doc, 'span', { class: 'prompt-origin', text: 'Synco Extension' }));
+  const root = h(
+    doc,
+    'main',
+    { class: 'prompt', attrs: { 'aria-live': 'polite' } },
+    head,
+    h(doc, 'div', { class: 'heading' }, status.root, title, hint),
+    replacing,
+    form,
+    closeRow,
+  );
 
   function update(view: PromptView): void {
     const showForm = view.phase === 'enter' || view.phase === 'confirm' || view.phase === 'verifying';
-    scene.set(sceneState(view.phase));
+    status.set(sceneState(view.phase));
     root.setAttribute('data-phase', view.phase);
     title.textContent = view.title;
-    hint.textContent = view.hint;
-    hint.hidden = view.hint === '';
+    hint.textContent = view.phase === 'fatal' || view.phase === 'expired' ? (view.error ?? view.hint) : view.hint;
+    hint.hidden = hint.textContent === '';
 
     replacing.hidden = !(view.replacing && view.mode === 'create' && view.phase !== 'verifying' && view.phase !== 'done');
 
-    error.hidden = view.error === null;
-    errorText.textContent = view.error ?? '';
+    // Pendant la saisie, l'erreur s'affiche sous les points ; après un échec définitif, elle devient le texte d'aide.
+    error.textContent = showForm ? (view.error ?? '') : '';
+    error.hidden = !showForm || view.error === null;
     // Deux classes en alternance : chaque nouvelle erreur rejoue la secousse (rajouter la même classe ne le ferait pas).
     dots.setAttribute('class', view.error !== null && view.errorSeq > 0 ? `dots shake-${view.errorSeq % 2 === 0 ? 'a' : 'b'}` : 'dots');
 

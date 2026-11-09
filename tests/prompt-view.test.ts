@@ -38,13 +38,12 @@ describe('fenêtre de saisie : affichage', () => {
     expect(all(root)).toContain('Synco Extension');
   });
 
-  test('pavé numérique : 0 à 9, effacer, retour arrière, avec libellés accessibles', () => {
+  test('pavé numérique : 0 à 9 et retour arrière, avec libellés accessibles', () => {
     const { v, root, calls } = make();
     v.update(base);
     for (const d of '0123456789') buttonByText(root, d).click();
-    buttonByText(root, 'Effacer').click();
     buttonByText(root, '⌫').click();
-    expect(calls).toEqual([...'0123456789'].map((d) => `press:${d}`).concat(['clear', 'backspace']));
+    expect(calls).toEqual([...'0123456789'].map((d) => `press:${d}`).concat(['backspace']));
     const keypad = root.findAll((e) => e.getAttribute('class') === 'keypad')[0]!;
     expect(keypad.findAll((e) => e.tagName === 'button').every((b) => !!b.getAttribute('aria-label'))).toBe(true);
   });
@@ -120,14 +119,13 @@ describe('fenêtre de saisie : affichage', () => {
     expect(banner().hidden).toBe(true);
   });
 
-  test('les limites sont dites : vérifié par l\'extension, effacement après 10 erreurs', () => {
+  test('la limite est dite : effacement après 10 erreurs', () => {
     const { v, root } = make();
     v.update(base);
     expect(all(root)).toContain('Après 10 erreurs');
-    expect(all(root)).toContain('Vérifié par l\'extension, pas par le site');
   });
 
-  test('scène de connexion : son état suit la phase de la fenêtre', async () => {
+  test('marque d\'état : elle suit la phase de la fenêtre', async () => {
     const { sceneState } = await import('../src/ui/prompt/view');
     expect(sceneState('loading')).toBe('connecting');
     for (const phase of ['enter', 'confirm'] as const) expect(sceneState(phase)).toBe('waiting');
@@ -135,7 +133,7 @@ describe('fenêtre de saisie : affichage', () => {
     expect(sceneState('done')).toBe('success');
     for (const phase of ['fatal', 'expired'] as const) expect(sceneState(phase)).toBe('error');
     const { v, root } = make();
-    const scene = () => root.findAll((e) => e.getAttribute('class') === 'scene')[0]!;
+    const scene = () => root.findAll((e) => e.getAttribute('class') === 'status')[0]!;
     v.update(base);
     expect(scene().getAttribute('data-state')).toBe('waiting');
     v.update({ ...base, phase: 'done', title: 'Déverrouillé', hint: 'Vous pouvez retourner sur Synco.' });

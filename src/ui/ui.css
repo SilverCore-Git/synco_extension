@@ -227,44 +227,10 @@ body.popup { width: 380px; min-height: 220px; max-height: 580px; overflow-y: aut
 .wordmark::before { background: currentColor; -webkit-mask-image: var(--logo-letters); mask-image: var(--logo-letters); }
 .wordmark::after { background: #1dd796; -webkit-mask-image: var(--logo-dot); mask-image: var(--logo-dot); }
 
-/* ---- Scène de connexion : l'application Synco et l'extension, reliées par un lien animé ---- */
-.scene { --track: 5.5rem; display: flex; align-items: flex-start; justify-content: center; gap: 0; padding: 0.4rem 0 0.2rem; }
-.node { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 4.5rem; }
-.node-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text2); transition: color 0.3s; }
-.app-icon, .ext-icon { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 1.05rem; transition: box-shadow 0.4s, transform 0.4s, background-color 0.4s; }
-.app-icon { background: var(--app-icon) center / contain no-repeat; box-shadow: 0 6px 18px -8px rgba(var(--primary-rgb), 0.6); }
-.ext-icon { position: relative; font-size: 1.6rem; color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--bg2)); border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent); }
-.ext-icon::after { content: ""; position: absolute; inset: -5px; border-radius: 1.3rem; border: 2px solid var(--primary); opacity: 0; }
-
-.link { position: relative; width: var(--track); height: 3.5rem; flex: none; }
-.track { position: absolute; left: 0.35rem; right: 0.35rem; top: 50%; height: 0; border-top: 2px dashed color-mix(in srgb, var(--text) 25%, transparent); transition: border-color 0.4s; }
-.packet { position: absolute; top: 50%; left: 0; width: 0.5rem; height: 0.5rem; margin-top: -0.25rem; border-radius: 50%; background: var(--primary); box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.8); opacity: 0; }
-.link-check { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 1.9rem; height: 1.9rem; margin: -0.95rem 0 0 -0.95rem; border-radius: 50%; background: var(--primary); color: var(--on-primary); font-size: 1rem; transform: scale(0); }
-
-@keyframes flow { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: calc(100% - 0.5rem); opacity: 0; } }
-@keyframes ring { 0% { transform: scale(0.92); opacity: 0.7; } 100% { transform: scale(1.18); opacity: 0; } }
+/* ---- Animations partagées ---- */
 @keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.18); } 100% { transform: scale(1); } }
 @keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
-@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-
-/* connexion et attente du code : des paquets circulent de Synco vers l'extension */
-.scene[data-state="connecting"] .packet, .scene[data-state="waiting"] .packet { animation: flow 1.8s ease-in-out infinite; }
-.scene[data-state="waiting"] .packet { animation-duration: 2.4s; }
-.packet[data-i="1"] { animation-delay: 0.6s !important; }
-.packet[data-i="2"] { animation-delay: 1.2s !important; }
-.scene[data-state="waiting"] .ext-icon::after { animation: ring 1.8s ease-out infinite; }
-/* vérification : l'extension travaille, les paquets s'accélèrent */
-.scene[data-state="working"] .packet { animation: flow 0.9s linear infinite; }
-.scene[data-state="working"] .ext-icon::after { animation: ring 0.9s ease-out infinite; }
-.scene[data-state="working"] .track { border-top-color: color-mix(in srgb, var(--primary) 55%, transparent); }
-/* réussite : lien plein, coche, halo vert */
-.scene[data-state="success"] .track { border-top-style: solid; border-top-color: var(--primary); }
-.scene[data-state="success"] .link-check { animation: pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-.scene[data-state="success"] .ext-icon { box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 22%, transparent), 0 0 26px rgba(var(--primary-rgb), 0.55); }
-.scene[data-state="success"] .node-label { color: var(--primary); }
-/* échec : lien rompu */
-.scene[data-state="error"] .track { border-top-color: color-mix(in srgb, var(--danger) 60%, transparent); border-top-style: dotted; }
-.scene[data-state="error"] .ext-icon { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--bg2)); border-color: color-mix(in srgb, var(--danger) 45%, transparent); animation: shake 0.45s; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- Popup : état du coffre en un coup d'œil ---- */
 .hero { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 1.5rem 1rem 1.25rem; text-align: center; border-radius: var(--radius); border: 1px solid var(--border-color); background: var(--bg2); }
@@ -280,42 +246,61 @@ body.popup { width: 380px; min-height: 220px; max-height: 580px; overflow-y: aut
 .more { margin-top: 0.75rem; }
 @media (prefers-reduced-motion: reduce) { .hero-icon { animation: none; } }
 
-/* ---- Fenêtre du PIN : même charte que la carte de l'application (scène, grands titres, gabarit aéré) ---- */
-body.prompt-page { min-height: 100vh; background: var(--bg2); }
-.prompt { min-height: 100vh; max-width: 26rem; margin: 0 auto; padding: 1.4rem 1.6rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+/* ---- Fenêtre du PIN ----
+ * Sobre et presque native : un titre, le code, le pavé. Pas de décor : ni halo, ni lien animé, ni étapes. Le vert
+ * Synco ne sert qu'à l'action principale et aux chiffres saisis. */
+body.prompt-page { min-height: 100vh; background: var(--bg); }
+.prompt { min-height: 100vh; max-width: 22rem; margin: 0 auto; padding: 1.1rem 1.5rem 1.25rem; display: flex; flex-direction: column; gap: 1.25rem; }
 .prompt-head { display: flex; align-items: center; justify-content: space-between; }
-.prompt-head .wordmark { height: 1.2rem; }
-.prompt .scene { padding: 0.5rem 0 0; }
-.heading { text-align: center; }
-.heading h1 { font-size: 1.4rem; font-weight: 900; line-height: 1.2; }
-.heading .hint { margin-top: 0.4rem; font-size: 0.88rem; line-height: 1.5; color: var(--text2); }
+.prompt-head .wordmark { height: 1rem; }
+.prompt-origin { font-size: 0.72rem; color: var(--text2); }
 
-/* Le formulaire occupe la hauteur disponible : le pavé s'étire plutôt que de laisser un trou, et garde un plancher lisible. */
-.form { flex: 1; display: flex; flex-direction: column; gap: 0.9rem; animation: rise 0.3s ease both; }
-.dots { display: flex; justify-content: center; align-items: center; gap: 0.8rem; min-height: 3rem; padding: 0.5rem; border-radius: 1rem; background: var(--bg); border: 1px solid var(--border-color); }
-.dot, .dots .slot { width: 0.9rem; height: 0.9rem; border-radius: 50%; }
-.dot { background: var(--primary); box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.5); animation: pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.dots .slot { border: 2px solid color-mix(in srgb, var(--text) 25%, transparent); }
-.dots.shake-a { animation: shake 0.45s; }
-.dots.shake-b { animation: shake 0.45s 0.001s; }
+.heading { text-align: center; margin-top: 0.75rem; }
+.heading h1 { font-size: 1.2rem; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; }
+.heading .hint { margin-top: 0.35rem; font-size: 0.85rem; line-height: 1.45; color: var(--text2); }
 
-.keypad { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(2.7rem, 1fr); gap: 0.5rem; }
-.keypad button { min-height: 0; font-size: 1.35rem; font-weight: 600; border-color: transparent; border-radius: 0.9rem; background: color-mix(in srgb, var(--text) 6%, transparent); }
-.keypad button:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 18%, transparent); }
-.keypad button:active:not(:disabled) { background: color-mix(in srgb, var(--primary) 30%, transparent); }
-.keypad button.aux { font-size: 0.85rem; font-weight: 500; color: var(--text2); }
-.prompt .actions button { min-height: 2.9rem; font-weight: 600; }
-.countdown { text-align: center; font-variant-numeric: tabular-nums; }
-.prompt .fine { display: flex; gap: 0.5rem; font-size: 0.75rem; line-height: 1.45; color: var(--text2); }
-.prompt .fine .bi { margin-top: 0.15rem; }
+/* Marque d'état : absente pendant la saisie */
+.status { display: none; justify-content: center; margin-bottom: 0.9rem; }
+.status > * { display: none; }
+.status[data-state="connecting"], .status[data-state="success"], .status[data-state="error"] { display: flex; }
+.status[data-state="connecting"] .status-spin,
+.status[data-state="success"] .status-check,
+.status[data-state="error"] .status-error { display: grid; }
+.status-spin { width: 1.5rem; height: 1.5rem; border-radius: 50%; border: 2px solid var(--border-color); border-top-color: var(--text2); animation: spin 0.9s linear infinite; }
+.status-check, .status-error { place-items: center; width: 3rem; height: 3rem; border-radius: 50%; animation: fade 0.2s ease both; }
+.status-check { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+/* Coche dessinée en CSS (aucune ressource) */
+.status-check::before { content: ""; width: 0.75rem; height: 1.3rem; margin-top: -0.3rem; border: solid var(--primary); border-width: 0 3px 3px 0; transform: rotate(45deg); }
+.status-error { font-size: 1.6rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 
-/* Réussite : la scène grandit au centre, le reste s'efface */
-.prompt[data-phase="done"] { justify-content: center; padding-bottom: 3.5rem; }
-.prompt[data-phase="done"] .prompt-head { position: absolute; top: 1.4rem; left: 1.6rem; right: 1.6rem; }
-.prompt[data-phase="done"] .scene { transform: scale(1.3); margin-bottom: 1.4rem; transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.prompt[data-phase="done"] .heading h1 { font-size: 1.6rem; }
+.form { flex: 1; display: flex; flex-direction: column; align-items: center; }
+.dots { display: flex; justify-content: center; align-items: center; gap: 0.9rem; height: 1rem; }
+.dot, .dots .slot { width: 0.75rem; height: 0.75rem; border-radius: 50%; }
+.dot { background: var(--text); }
+.dots .slot { border: 1.5px solid color-mix(in srgb, var(--text) 35%, transparent); }
+.dots.shake-a { animation: shake 0.4s; }
+.dots.shake-b { animation: shake 0.4s 0.001s; }
+.pin-error { min-height: 1.2rem; margin: 0.6rem 0 0.4rem; font-size: 0.8rem; color: var(--danger); text-align: center; }
+.pin-error[hidden] { display: block !important; visibility: hidden; }
+
+.keypad { display: grid; grid-template-columns: repeat(3, 4rem); grid-auto-rows: 4rem; gap: 0.6rem 1.25rem; justify-content: center; margin-top: 0.4rem; }
+.keypad button { min-height: 0; padding: 0; border: 0; border-radius: 50%; font-size: 1.45rem; font-weight: 400; font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.keypad button:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 11%, transparent); }
+.keypad button:active:not(:disabled) { background: color-mix(in srgb, var(--text) 18%, transparent); transform: none; }
+.keypad button.aux { background: transparent; font-size: 1.25rem; color: var(--text2); }
+.keypad button.aux:hover:not(:disabled) { color: var(--text); background: transparent; }
+
+.prompt .form .actions { width: 100%; margin-top: auto; padding-top: 1.25rem; }
+.prompt .actions button { min-height: 2.75rem; font-weight: 600; }
+.countdown { margin-top: 0.6rem; text-align: center; font-variant-numeric: tabular-nums; }
+.prompt .fine { margin-top: 0.75rem; font-size: 0.72rem; line-height: 1.4; color: var(--text2); text-align: center; }
+
+/* Réussite et échec définitif : contenu centré dans la fenêtre */
+.prompt[data-phase="done"] .heading, .prompt[data-phase="loading"] .heading,
+.prompt[data-phase="fatal"] .heading, .prompt[data-phase="expired"] .heading { margin-top: auto; }
+.prompt[data-phase="done"], .prompt[data-phase="loading"] { padding-bottom: 4rem; }
+.prompt[data-phase="done"] .heading, .prompt[data-phase="loading"] .heading { margin-bottom: auto; }
 
 @media (prefers-reduced-motion: reduce) {
-  .packet, .ext-icon::after, .link-check, .form, .dot, .dots.shake-a, .dots.shake-b { animation: none !important; }
-  .scene[data-state="success"] .link-check { transform: scale(1); }
+  .status-spin, .status-check, .status-error, .dots.shake-a, .dots.shake-b { animation: none !important; }
 }

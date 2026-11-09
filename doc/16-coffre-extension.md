@@ -118,9 +118,10 @@ absente » ; elle ne doit jamais bloquer. Une réponse `ready` ne prouve pas l'i
 `create` et `load` ouvrent une **fenêtre de l'extension**, `windows.create({ type: 'popup' })`, qui fonctionne sur
 Chrome et sur Firefox.
 
-Ce que la fenêtre affiche : une scène (l'application Synco et l'extension reliées par un lien animé), un titre, un
-emplacement de saisie, un pavé numérique (clavier physique accepté), « Annuler », et en une ligne les limites (vérifié
-par l'extension, effacement après 10 erreurs).
+Ce que la fenêtre affiche, volontairement sobre : le logo et « Synco Extension » (provenance), un titre et une ligne
+d'aide, les points du code, la ligne d'erreur, un pavé numérique rond (chiffres et retour arrière ; clavier physique
+accepté), « Annuler » et l'action principale, et une ligne de limite (effacement après 10 erreurs). Aucun décor : la
+seule marque d'état est un indicateur pendant la connexion, une coche à la réussite, une croix à l'échec.
 
 **Placement.** La fenêtre (420 × 660 px) s'ouvre à droite de la carte que l'application affiche pendant la demande, au même
 niveau : la paire est centrée sur la page (disposition convenue avec l'application, qui décale sa carte d'autant). Le
