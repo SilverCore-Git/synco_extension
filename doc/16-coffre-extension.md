@@ -284,6 +284,12 @@ ont un état.
 - **Permissions retirables.** L'utilisateur peut retirer l'accès au site Synco (Firefox : `about:addons` →
   Autorisations). L'extension le détecte (`permissions.contains`) et l'indique dans sa page d'options ; la page ne
   reçoit alors aucune réponse et conclut « extension absente ».
+- **Retour vers Synco après l'installation** (`src/background/onboarding.ts`). L'application propose l'extension
+  depuis une carte qui ouvre la boutique ; l'onglet Synco attend. À la première installation (`onInstalled`, raison
+  `install` seulement), l'extension recharge les onglets Synco et remet le plus récent au premier plan : Chrome
+  n'injecte pas les content scripts dans un onglet déjà ouvert, et l'extension s'interdit la permission `scripting`.
+  Sans accès au site, elle ouvre sa page d'options, qui le demande ; l'octroi (`permissions.onAdded`, origines de la
+  liste blanche seulement, jamais `<all_urls>`) déclenche le même retour. Aucune donnée du coffre n'y circule.
 - **Fenêtres.** Les navigateurs sans `windows.create`, comme Firefox pour Android, ne peuvent pas afficher l'invite.
   L'extension n'est pas destinée à ces navigateurs.
 

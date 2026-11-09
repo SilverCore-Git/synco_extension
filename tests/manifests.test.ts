@@ -132,8 +132,8 @@ describe('séparation prod / dev', () => {
         expect(pattern).not.toMatch(/^https:\/\/[^/]*:\d+/);
       }
     }
-    expect(gen('firefox', 'dev').content_scripts[0].matches).toEqual(['https://localhost/*']);
-    expect(gen('chrome', 'dev').content_scripts[0].matches).toEqual(['https://localhost:5174/*']);
+    expect(gen('firefox', 'dev').content_scripts[0].matches).toEqual(['https://localhost/*', 'https://dev.synco.local/*']);
+    expect(gen('chrome', 'dev').content_scripts[0].matches).toEqual(['https://localhost:5174/*', 'https://dev.synco.local:5174/*']);
   });
 
   test('un motif ne dépasse jamais l\'hôte de la liste blanche, quel que soit le navigateur', () => {
@@ -167,6 +167,9 @@ describe('séparation prod / dev', () => {
 
   test('la garde refuse une origine locale glissée dans un paquet de production', () => {
     expect(() => assertNoLocalOrigins('{"matches":["https://localhost:5174/*"]}', 'x')).toThrow();
+    expect(() => assertNoLocalOrigins('{"matches":["https://dev.synco.local:5174/*"]}', 'x')).toThrow();
+    expect(() => assertNoLocalOrigins('{"matches":["https://dev.synco.local/*"]}', 'x')).toThrow();
+    expect(() => assertNoLocalOrigins('{"matches":["https://app.synco.one/*"],"default_locale":"fr"}', 'x')).not.toThrow();
     expect(() => assertNoLocalOrigins('const o = "https://127.0.0.1:8443";', 'x')).toThrow();
     expect(() => assertNoLocalOrigins('{"matches":["https://app.synco.one/*"]}', 'x')).not.toThrow();
     // Une configuration de production polluée par une origine locale fait échouer l'assemblage.

@@ -9,6 +9,7 @@ import { errorResponse, PROMPT_PAGE } from '../shared/protocol';
 import { IdbDeviceSecret } from '../vault/idbSecret';
 import { Vault } from '../vault/vault';
 import { besideApp, centerOver, PROMPT_WINDOW } from './placement';
+import { onExtensionInstalled, onPermissionsAdded, type OnboardingHost } from './onboarding';
 import { PromptManager, type PromptHost } from './prompt';
 import { MemoryLimiterStore, SlidingWindowLimiter } from './rateLimit';
 import { Router } from './router';
@@ -95,7 +96,25 @@ const pageHost: PageActionsHost = {
 };
 registerPageActions(pageHost, [createTaskAction({ store: new DraftStore(api.storage.session as SessionArea), host: pageHost })]);
 
+// Retour vers l'onglet Synco après l'installation ou l'octroi de l'accès au site (onboarding.ts).
+const onboardingHost: OnboardingHost = {
+  hostPatterns: () => api.runtime.getManifest().host_permissions ?? [],
+  hasHostAccess: (origins) => api.permissions.contains({ origins }),
+  findTabs: async (url) => (await api.tabs.query({ url })).map((t) => ({ id: t.id, windowId: t.windowId, lastAccessed: t.lastAccessed })),
+  reloadTab: (tabId) => api.tabs.reload(tabId),
+  async focusTab(tab) {
+    if (tab.id !== undefined) await api.tabs.update(tab.id, { active: true });
+    if (tab.windowId !== undefined) await api.windows.update(tab.windowId, { focused: true });
+  },
+  openOptions: () => api.runtime.openOptionsPage(),
+};
+
 // Création du second secret dès l'installation (sinon, au premier usage).
-api.runtime.onInstalled.addListener(() => {
+api.runtime.onInstalled.addListener((details) => {
   void secret.getKey().catch(() => undefined);
+  void onExtensionInstalled(details?.reason, onboardingHost).catch(() => undefined);
+});
+
+api.permissions.onAdded.addListener((added) => {
+  void onPermissionsAdded(added, onboardingHost).catch(() => undefined);
 });

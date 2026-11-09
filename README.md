@@ -21,7 +21,7 @@ Elles sont définies dans [config/origins.json](config/origins.json) et injecté
 | Build | Origines |
 | --- | --- |
 | `--prod` | `https://app.synco.one` |
-| `--dev` | `https://localhost:5174` |
+| `--dev` | `https://localhost:5174`, `https://dev.synco.local:5174` (VM de test) |
 
 Pas de joker ni de sous-domaine implicite. Le paquet de production ne contient aucune origine locale (vérifié au build et par les tests).
 

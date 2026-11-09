@@ -23,11 +23,12 @@ export function originsFor(config, mode) {
   return origins;
 }
 
-const LOCAL_HOST = /(^|[/.@])(localhost|127\.\d+\.\d+\.\d+|\[::1\]|0\.0\.0\.0)(:|\/|"|$)/i;
+// `.local` : noms de développement (ex. dev.synco.local, VM de test), jamais publiés.
+const LOCAL_HOST = /(^|[/.@])(localhost|127\.\d+\.\d+\.\d+|\[::1\]|0\.0\.0\.0|[a-z0-9-]+(\.[a-z0-9-]+)*\.local)(:|\/|"|$)/i;
 
 /** Le paquet de production ne doit contenir aucune trace d'origine locale. */
 export function assertNoLocalOrigins(text, label) {
-  if (LOCAL_HOST.test(text)) throw new Error(`${label} : origine locale (localhost, 127.x…) interdite en production`);
+  if (LOCAL_HOST.test(text)) throw new Error(`${label} : origine locale (localhost, 127.x, .local…) interdite en production`);
 }
 
 /**
