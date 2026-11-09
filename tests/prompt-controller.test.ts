@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { PromptInfo, SubmitOutcome } from '../src/background/prompt';
-import { PromptController, type PromptBackend, type PromptView } from '../src/ui/prompt/controller';
+import { AUTO_SUBMIT_MS, PromptController, type PromptBackend, type PromptView } from '../src/ui/prompt/controller';
 
 const ORIGIN = 'https://app.synco.one';
 
@@ -50,12 +50,33 @@ describe('déverrouillage (load)', () => {
     for (const bad of ['a', ' ', '12', '', '٣', '+']) s.c.press(bad);
     expect(s.view.dots).toBe(0);
     s.type('123456789');
-    expect(s.view.dots).toBe(8); // maxPin = 8
-    expect(JSON.stringify(s.view)).not.toContain('12345678');
+    expect(s.view.dots).toBe(4); // PIN_LENGTH : 4 chiffres, comme le PIN local de Synco
+    expect(JSON.stringify(s.view)).not.toContain('1234');
     s.c.backspace();
-    expect(s.view.dots).toBe(7);
+    expect(s.view.dots).toBe(3);
     s.c.clear();
     expect(s.view.dots).toBe(0);
+  });
+
+  test('validation automatique au 4e chiffre ; un retour arrière avant l\'échéance l\'annule', async () => {
+    const s = setup();
+    await s.c.start();
+    s.type('482');
+    expect(s.scheduled).toEqual([]);
+    s.type('1');
+    expect(s.scheduled.map((x) => x.ms)).toEqual([AUTO_SUBMIT_MS]);
+    s.scheduled[0]!.fn();
+    await Promise.resolve();
+    expect(s.calls.submit).toEqual(['4821']);
+
+    const t = setup();
+    await t.c.start();
+    t.type('4821');
+    t.c.backspace();
+    t.scheduled[0]!.fn();
+    await Promise.resolve();
+    expect(t.calls.submit).toEqual([]);
+    expect(t.view.error).toBeNull();
   });
 
   test('moins de 4 chiffres : refus local, rien n\'est envoyé', async () => {
@@ -64,7 +85,7 @@ describe('déverrouillage (load)', () => {
     s.type('123');
     expect(s.view.canSubmit).toBe(false);
     await s.c.submit();
-    expect(s.view.error).toContain('au moins 4');
+    expect(s.view.error).toContain('4 chiffres');
     expect(s.calls.submit).toEqual([]);
   });
 
@@ -74,6 +95,7 @@ describe('déverrouillage (load)', () => {
     const s = setup({}, { submit: async () => (await gate, { ok: true }) });
     await s.c.start();
     s.type('4821');
+    s.scheduled.length = 0; // validation automatique planifiée : on valide ici à la main
     const done = s.c.submit();
     expect(s.view.phase).toBe('verifying');
     expect(s.view.dots).toBe(0); // le PIN est vidé dès l'envoi
@@ -165,10 +187,11 @@ describe('création (create) : double saisie', () => {
   test('choix puis confirmation identique : un seul envoi', async () => {
     const s = setup({ mode: 'create' });
     await s.c.start();
-    expect(s.view).toMatchObject({ title: 'Choisissez un code PIN', submitLabel: 'Continuer' });
+    expect(s.view).toMatchObject({ title: 'Choisissez un code PIN', submitLabel: 'OK' });
     s.type('4821');
+    expect(s.scheduled).toEqual([]); // jamais de validation automatique pour choisir un code : on relit
     await s.c.submit();
-    expect(s.view).toMatchObject({ phase: 'confirm', title: 'Confirmez votre code', submitLabel: 'Valider', dots: 0 });
+    expect(s.view).toMatchObject({ phase: 'confirm', title: 'Confirmez votre code', submitLabel: 'OK', dots: 0 });
     expect(s.calls.submit).toEqual([]); // rien n'est envoyé avant la confirmation
     s.type('4821');
     await s.c.submit();

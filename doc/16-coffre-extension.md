@@ -118,10 +118,12 @@ absente » ; elle ne doit jamais bloquer. Une réponse `ready` ne prouve pas l'i
 `create` et `load` ouvrent une **fenêtre de l'extension**, `windows.create({ type: 'popup' })`, qui fonctionne sur
 Chrome et sur Firefox.
 
-Ce que la fenêtre affiche, volontairement sobre : le logo et « Synco Extension » (provenance), un titre et une ligne
-d'aide, les points du code, la ligne d'erreur, un pavé numérique rond (chiffres et retour arrière ; clavier physique
-accepté), « Annuler » et l'action principale, et une ligne de limite (effacement après 10 erreurs). Aucun décor : la
-seule marque d'état est un indicateur pendant la connexion, une coche à la réussite, une croix à l'échec.
+Ce que la fenêtre affiche, avec le même pavé que le PIN local de Synco (`PinPad.vue`) : le logo et « Synco Extension »
+(provenance), un titre et une ligne d'aide, quatre cases qui se remplissent en vert, la ligne d'erreur, le pavé
+(touches bordées de vert, puis EFFACER · 0 · OK ; clavier physique accepté), « Annuler », et une ligne de limite
+(effacement après 10 erreurs). Le code saisi ici fait **4 chiffres**, comme le PIN local (le coffre accepte toujours
+4 à 32) : au déverrouillage, il part **dès le 4e chiffre** ; pour en choisir un, jamais (on relit, puis OK). Aucun
+décor : un indicateur pendant la connexion, une coche à la réussite, une croix à l'échec.
 
 **Placement.** La fenêtre (420 × 660 px) s'ouvre à droite de la carte que l'application affiche pendant la demande, au même
 niveau : la paire est centrée sur la page (disposition convenue avec l'application, qui décale sa carte d'autant). Le

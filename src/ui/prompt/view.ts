@@ -79,14 +79,15 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     'div',
     { class: 'keypad', attrs: { role: 'group', 'aria-label': 'Pavé numérique' } },
     ...['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => key(d, `Chiffre ${d}`, () => handlers.press(d))),
-    h(doc, 'span', { attrs: { 'aria-hidden': 'true' } }),
+    key('EFFACER', 'Tout effacer', handlers.clear, 'aux'),
     key('0', 'Chiffre 0', () => handlers.press('0')),
-    key('⌫', 'Supprimer le dernier chiffre', handlers.backspace, 'aux'),
   );
+  // « OK » ferme le pavé, comme celui de Synco (PinPad.vue). Au déverrouillage, le dernier chiffre valide déjà seul.
+  const submitBtn = h(doc, 'button', { class: 'primary ok', attrs: { type: 'button', 'aria-label': 'Valider' }, on: { click: handlers.submit } });
+  keypad.appendChild(submitBtn);
 
-  const cancelBtn = h(doc, 'button', { class: 'default', text: 'Annuler', attrs: { type: 'button' }, on: { click: handlers.cancel } });
-  const submitBtn = h(doc, 'button', { class: 'primary', attrs: { type: 'button' }, on: { click: handlers.submit } });
-  const actions = h(doc, 'div', { class: 'actions fill' }, cancelBtn, submitBtn);
+  const cancelBtn = h(doc, 'button', { class: 'cancel', text: 'Annuler', attrs: { type: 'button' }, on: { click: handlers.cancel } });
+  const actions = h(doc, 'div', { class: 'prompt-cancel' }, cancelBtn);
 
   const countdown = h(doc, 'p', { class: 'muted countdown' });
   const fine = h(doc, 'p', { class: 'fine', text: 'Après 10 erreurs, la clé de cet appareil est effacée.' });
@@ -96,7 +97,7 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
   const closeRow = h(doc, 'div', { class: 'actions fill' }, closeBtn);
 
   // Repère de provenance : la fenêtre se présente comme celle de l'extension (le contenu de la page n'y entre jamais).
-  const head = h(doc, 'header', { class: 'prompt-head' }, wordmark(doc), h(doc, 'span', { class: 'prompt-origin', text: 'Synco Extension' }));
+  const head = h(doc, 'header', { class: 'prompt-head' }, wordmark(doc), h(doc, 'span', { class: 'chip chip-off', text: 'Synco Extension' }));
   const root = h(
     doc,
     'main',
@@ -131,14 +132,15 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     dots.setAttribute('aria-label', `${view.dots} chiffre${view.dots > 1 ? 's' : ''} saisi${view.dots > 1 ? 's' : ''}`);
     // Emplacements vides jusqu'à la longueur minimale, puis un point par chiffre au-delà : le champ « se remplit ».
     const empty = Math.max(0, view.slots - view.dots);
+    // Cases du pavé de Synco : une case par chiffre, qui se remplit (bord vert, point vert) à la saisie.
     dots.replaceChildren(
-      ...Array.from({ length: view.dots }, () => h(doc, 'span', { class: 'dot' })),
-      ...Array.from({ length: empty }, () => h(doc, 'span', { class: 'slot' })),
+      ...Array.from({ length: view.dots }, () => h(doc, 'span', { class: 'dot' }, h(doc, 'i'))),
+      ...Array.from({ length: empty }, () => h(doc, 'span', { class: 'slot' }, h(doc, 'i'))),
     );
 
     for (const b of keyButtons) b.disabled = !view.keypadEnabled;
-    submitBtn.textContent = view.phase === 'verifying' ? 'Vérification…' : view.submitLabel;
-    submitBtn.setAttribute('class', view.phase === 'verifying' ? 'primary busy' : 'primary');
+    submitBtn.textContent = view.submitLabel;
+    submitBtn.setAttribute('class', view.phase === 'verifying' ? 'primary ok busy' : 'primary ok');
     submitBtn.disabled = !view.canSubmit;
     cancelBtn.disabled = false;
 

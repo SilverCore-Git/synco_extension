@@ -50,6 +50,14 @@ export interface PromptDeps {
 const DIGIT = /^[0-9]$/;
 
 /**
+ * Longueur du PIN saisi dans cette fenêtre : 4 chiffres, comme le PIN local de Synco (même pavé, mêmes cases).
+ * Le coffre accepte toujours de 4 à 32 chiffres (MIN/MAX_PIN_LENGTH) ; c'est l'interface qui fixe 4.
+ */
+export const PIN_LENGTH = 4;
+/** Délai avant la validation automatique : le dernier point a le temps de s'afficher. */
+export const AUTO_SUBMIT_MS = 120;
+
+/**
  * Logique de la fenêtre de saisie du PIN. Le PIN n'existe qu'ici et dans le message vers le worker : il est
  * vidé dès l'envoi, en cas d'annulation, d'expiration et de discordance de la confirmation. Les chaînes JavaScript
  * ne s'effacent pas de la mémoire ; on en limite seulement la durée de vie et le nombre.
@@ -94,10 +102,18 @@ export class PromptController {
   }
 
   press(digit: string): void {
-    if (!this.canType() || !DIGIT.test(digit) || this.pin.length >= (this.info?.maxPin ?? 0)) return;
+    if (!this.canType() || !DIGIT.test(digit) || this.pin.length >= Math.min(PIN_LENGTH, this.info?.maxPin ?? 0)) return;
     this.pin += digit;
     this.error = null;
     this.notify();
+    // Déverrouillage : validation dès le dernier chiffre, comme le pavé de Synco. Pour choisir un code, jamais :
+    // l'utilisateur doit pouvoir relire avant de valider.
+    if (this.info?.mode === 'load' && this.pin.length === PIN_LENGTH) {
+      (this.deps.schedule ?? ((fn, ms) => void setTimeout(fn, ms)))(() => {
+        // Un retour arrière entre-temps annule la validation automatique.
+        if (this.phase === 'enter' && this.pin.length === PIN_LENGTH) void this.submit();
+      }, AUTO_SUBMIT_MS);
+    }
   }
 
   backspace(): void {
@@ -114,8 +130,8 @@ export class PromptController {
 
   async submit(): Promise<void> {
     if (!this.canType() || !this.info) return;
-    if (this.pin.length < this.info.minPin) {
-      this.fail(`Le code doit contenir au moins ${this.info.minPin} chiffres.`);
+    if (this.pin.length !== PIN_LENGTH) {
+      this.fail(`Le code doit contenir ${PIN_LENGTH} chiffres.`);
       this.notify();
       return;
     }
@@ -222,10 +238,10 @@ export class PromptController {
       error: this.error,
       errorSeq: this.errorSeq,
       dots: this.pin.length,
-      slots: info?.minPin ?? 4,
+      slots: PIN_LENGTH,
       keypadEnabled: typing && !locked,
-      canSubmit: typing && !locked && info !== null && this.pin.length >= info.minPin,
-      submitLabel: mode === 'create' ? (this.phase === 'confirm' ? 'Valider' : 'Continuer') : 'Déverrouiller',
+      canSubmit: typing && !locked && info !== null && this.pin.length === PIN_LENGTH,
+      submitLabel: 'OK',
       remainingSeconds: info && typing ? Math.max(0, Math.ceil((info.expiresAt - now) / 1000)) : null,
       lockSeconds: locked && this.lockedUntil !== null ? Math.ceil((this.lockedUntil - now) / 1000) : null,
     };
@@ -283,7 +299,7 @@ export class PromptController {
     if (!info || (this.phase !== 'enter' && this.phase !== 'confirm')) return '';
     if (info.mode === 'load') return 'Pour ouvrir Synco sur cet appareil.';
     if (this.phase === 'confirm') return 'Saisissez le même code une seconde fois.';
-    return `${info.minPin} chiffres au minimum.`;
+    return `${PIN_LENGTH} chiffres, pour protéger la clé de cet appareil.`;
   }
 
   private notify(): void {

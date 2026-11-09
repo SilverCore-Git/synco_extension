@@ -38,12 +38,13 @@ describe('fenêtre de saisie : affichage', () => {
     expect(all(root)).toContain('Synco Extension');
   });
 
-  test('pavé numérique : 0 à 9 et retour arrière, avec libellés accessibles', () => {
+  test('pavé numérique de Synco : 0 à 9, EFFACER, OK, avec libellés accessibles', () => {
     const { v, root, calls } = make();
-    v.update(base);
+    v.update({ ...base, canSubmit: true, submitLabel: 'OK' });
     for (const d of '0123456789') buttonByText(root, d).click();
-    buttonByText(root, '⌫').click();
-    expect(calls).toEqual([...'0123456789'].map((d) => `press:${d}`).concat(['backspace']));
+    buttonByText(root, 'EFFACER').click();
+    buttonByText(root, 'OK').click();
+    expect(calls).toEqual([...'0123456789'].map((d) => `press:${d}`).concat(['clear', 'submit']));
     const keypad = root.findAll((e) => e.getAttribute('class') === 'keypad')[0]!;
     expect(keypad.findAll((e) => e.tagName === 'button').every((b) => !!b.getAttribute('aria-label'))).toBe(true);
   });
@@ -85,7 +86,6 @@ describe('fenêtre de saisie : affichage', () => {
     const { v, root } = make();
     v.update({ ...base, phase: 'verifying', keypadEnabled: false, hint: 'Vérification en cours…' });
     expect(root.getAttribute('aria-busy')).toBe('true');
-    expect(all(root)).toContain('Vérification…');
     expect(buttonByText(root, '1').disabled).toBe(true);
   });
 
