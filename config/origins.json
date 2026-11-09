@@ -1,4 +1,4 @@
 {
   "production": ["https://app.synco.one"],
-  "development": ["https://localhost:5174", "https://dev.synco.local:5174"]
+  "development": ["https://localhost:5174"]
 }

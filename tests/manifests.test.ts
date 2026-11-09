@@ -132,8 +132,8 @@ describe('séparation prod / dev', () => {
         expect(pattern).not.toMatch(/^https:\/\/[^/]*:\d+/);
       }
     }
-    expect(gen('firefox', 'dev').content_scripts[0].matches).toEqual(['https://localhost/*', 'https://dev.synco.local/*']);
-    expect(gen('chrome', 'dev').content_scripts[0].matches).toEqual(['https://localhost:5174/*', 'https://dev.synco.local:5174/*']);
+    expect(gen('firefox', 'dev').content_scripts[0].matches).toEqual(['https://localhost/*']);
+    expect(gen('chrome', 'dev').content_scripts[0].matches).toEqual(['https://localhost:5174/*']);
   });
 
   test('un motif ne dépasse jamais l\'hôte de la liste blanche, quel que soit le navigateur', () => {
