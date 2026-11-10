@@ -33,8 +33,15 @@ export interface PromptRequest<T> {
   reason: string | null;
   /** Un enregistrement existe déjà et sera remplacé (create). */
   replacing: boolean;
-  /** Tente l'opération avec le PIN saisi. Lève une `VaultError` : `wrong-pin` relance la saisie, le reste termine. */
-  attempt(pin: string): Promise<T>;
+  /**
+   * Ancien enregistrement scellé par un PIN : la fenêtre affiche le pavé. Sinon (cas normal), un bouton « Autoriser ».
+   */
+  needsPin: boolean;
+  /**
+   * Tente l'opération : `pin` vaut `null` sans PIN (bouton « Autoriser »). Lève une `VaultError` : `wrong-pin` relance
+   * la saisie, le reste termine.
+   */
+  attempt(pin: string | null): Promise<T>;
 }
 
 export interface PromptInfo {
@@ -42,6 +49,7 @@ export interface PromptInfo {
   mode: 'create' | 'load';
   reason: string | null;
   replacing: boolean;
+  needsPin: boolean;
   minPin: number;
   maxPin: number;
   expiresAt: number;
@@ -77,7 +85,8 @@ const defaultId = () => {
 };
 
 /**
- * Une seule invite à la fois, jamais deux fenêtres. Le PIN n'existe que dans la page d'invite de l'extension et ici.
+ * Une seule invite à la fois, jamais deux fenêtres. L'invite demande l'accord de l'utilisateur (bouton « Autoriser ») ;
+ * pour un ancien enregistrement à PIN, le PIN, qui n'existe alors que dans la page d'invite de l'extension et ici.
  * État en mémoire : si le worker est tué pendant une invite, la page d'invite reçoit « expired » et la demande de la
  * page échoue en `unavailable` (la page d'invite envoie des « ping » pour retarder l'endormissement du worker).
  */
@@ -140,7 +149,7 @@ export class PromptManager {
         session.windowId = windowId;
         if (session.settled) void this.deps.host.closeWindow(windowId).catch(() => undefined); // annulée pendant l'ouverture
       },
-      () => this.settle(session, 'reject', new VaultError('unavailable', 'Impossible d\'ouvrir la fenêtre de saisie du PIN.')),
+      () => this.settle(session, 'reject', new VaultError('unavailable', 'Impossible d\'ouvrir la fenêtre de l\'extension.')),
     );
     return promise as Promise<T>;
   }
@@ -154,6 +163,7 @@ export class PromptManager {
       mode: s.req.mode,
       reason: s.req.reason,
       replacing: s.req.replacing,
+      needsPin: s.req.needsPin,
       minPin: MIN_PIN_LENGTH,
       maxPin: MAX_PIN_LENGTH,
       expiresAt: s.expiresAt,
@@ -182,9 +192,13 @@ export class PromptManager {
     if (s) this.settle(s, 'reject', new VaultError('cancelled'));
   }
 
-  async submit(sessionId: string, pin: string): Promise<SubmitOutcome> {
+  async submit(sessionId: string, pin: string | null): Promise<SubmitOutcome> {
     const s = this.active(sessionId);
     if (!s) return { ok: false, error: { code: 'cancelled', message: 'Cette invite a expiré.', terminal: true } };
+    // Le pavé n'existe que pour un ancien enregistrement à PIN ; partout ailleurs, la réponse est un simple accord.
+    if (s.req.needsPin !== (pin !== null)) {
+      return { ok: false, error: { code: 'bad-request', terminal: false } };
+    }
     if (s.attempting) return { ok: false, error: { code: 'unavailable', message: 'Une vérification est déjà en cours.', terminal: false } };
 
     s.attempting = true;

@@ -9,21 +9,18 @@ import {
   PIN_FORMAT,
   PIN_ITERATIONS,
   RECORD_VERSION,
-  SALT_LENGTH,
 } from './constants';
-import { aadDeviceSecret, aadPin, aesGcmOpen, aesGcmSeal, deriveKeyFromPin } from './crypto';
+import { aadDeviceSecret, aadDeviceSecretV2, aadPin, aesGcmOpen, aesGcmSeal, deriveKeyFromPin } from './crypto';
 import { fromB64, toB64 } from './encoding';
 import { VaultError } from './errors';
 import type { DeviceSecret, VaultStorage } from './ports';
-import { parseRecord, parseRecordKey, recordKey, type VaultRecordV1 } from './record';
+import { parseRecord, parseRecordKey, recordKey, type VaultRecord, type VaultRecordV1, type VaultRecordV2 } from './record';
 
 export interface VaultDeps {
   storage: VaultStorage;
   secret: DeviceSecret;
   /** Horloge (ms) ; injectable pour tester les délais. */
   now?: () => number;
-  /** Itérations PBKDF2 des nouveaux enregistrements. Production : toujours la valeur par défaut. */
-  iterations?: number;
   /** Plancher accepté à la lecture. Production : toujours la valeur par défaut (tests uniquement). */
   minIterations?: number;
   /** Dérivation de la clé d'enveloppe ; injectable pour tester l'ordre des opérations. */
@@ -35,6 +32,8 @@ export interface VaultEntry {
   deviceId: string;
   /** `false` : version inconnue ou enregistrement altéré (il reste listé pour pouvoir être supprimé). */
   readable: boolean;
+  /** Ancien enregistrement scellé par un PIN (format 1) : le PIN sera demandé une dernière fois. */
+  pin: boolean;
   createdAt: number | null;
   failures: number | null;
   lockedUntil: number | null;
@@ -44,14 +43,15 @@ export interface VaultEntry {
  * Cœur du coffre : pur, sans API d'extension, sans réseau, sans journalisation. L'origine est un paramètre de
  * chaque opération : l'appelant (le worker) l'a lue sur `sender`, jamais dans le message de la page.
  *
- * Chaque enregistrement est scellé deux fois : par le PIN (PBKDF2) puis par le second secret de l'extension.
+ * Format écrit (2) : DK scellée par le second secret de l'extension, sans PIN ; l'accès passe par la fenêtre de
+ * l'extension (geste de l'utilisateur), gérée par le worker. Format lu en plus (1) : DK scellée par le PIN (PBKDF2)
+ * puis par le second secret ; le PIN est demandé une dernière fois, puis l'enregistrement est réécrit en format 2.
  * Les octets de DK retournés doivent être effacés (`fill(0)`) par l'appelant dès qu'ils ne servent plus.
  */
 export class Vault {
   private readonly storage: VaultStorage;
   private readonly secret: DeviceSecret;
   private readonly now: () => number;
-  private readonly iterations: number;
   private readonly minIterations: number;
   private readonly deriveKey: typeof deriveKeyFromPin;
   private readonly locks = new Map<string, Promise<void>>();
@@ -60,39 +60,17 @@ export class Vault {
     this.storage = deps.storage;
     this.secret = deps.secret;
     this.now = deps.now ?? Date.now;
-    this.iterations = deps.iterations ?? PIN_ITERATIONS;
     this.minIterations = deps.minIterations ?? PIN_ITERATIONS;
     this.deriveKey = deps.deriveKey ?? deriveKeyFromPin;
   }
 
-  /** Produit une nouvelle DK, la scelle sous le PIN et la retourne. Remplace un enregistrement existant. */
-  async create(origin: string, deviceId: string, pin: string): Promise<Uint8Array<ArrayBuffer>> {
+  /** Produit une nouvelle DK, la scelle (format 2, sans PIN) et la retourne. Remplace un enregistrement existant. */
+  async create(origin: string, deviceId: string): Promise<Uint8Array<ArrayBuffer>> {
     const ref = this.ref(origin, deviceId);
-    if (typeof pin !== 'string' || pin.length === 0) throw new VaultError('pin-required');
-    this.assertPinFormat(pin);
-
     return this.exclusive(ref.key, async () => {
       const dk = crypto.getRandomValues(new Uint8Array(DK_LENGTH));
       try {
-        const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
-        const pinKey = await this.deriveKey(pin, salt, this.iterations);
-        const inner = await aesGcmSeal(pinKey, dk, aadPin(ref.origin, ref.deviceId));
-        let wrapped: Uint8Array<ArrayBuffer>;
-        try {
-          wrapped = await aesGcmSeal(await this.deviceKey(), inner, aadDeviceSecret(ref.origin, ref.deviceId));
-        } finally {
-          inner.fill(0);
-        }
-        const record: VaultRecordV1 = {
-          v: RECORD_VERSION,
-          salt: toB64(salt),
-          iterations: this.iterations,
-          wrapped: toB64(wrapped),
-          failures: 0,
-          lockedUntil: null,
-          createdAt: this.now(),
-        };
-        await this.storage.set(ref.key, record);
+        await this.writeV2(ref, dk);
         return dk;
       } catch (e) {
         dk.fill(0);
@@ -101,14 +79,27 @@ export class Vault {
     });
   }
 
-  /** Restitue DK si le PIN est bon. Chaque appel redemande le PIN : aucune session de déverrouillage. */
-  async load(origin: string, deviceId: string, pin: string): Promise<Uint8Array<ArrayBuffer>> {
+  /** Vrai si l'enregistrement est un ancien format à PIN : l'invite doit alors afficher le pavé. */
+  async needsPin(origin: string, deviceId: string): Promise<boolean> {
     const ref = this.ref(origin, deviceId);
-    if (typeof pin !== 'string' || pin.length === 0) throw new VaultError('pin-required');
-    this.assertPinFormat(pin);
+    const raw = await this.storage.get(ref.key);
+    return parseRecord(raw, this.minIterations)?.v === 1;
+  }
+
+  /**
+   * Restitue DK. Format 2 : sans PIN (`pin` ignoré). Format 1 : le PIN est vérifié avec son compteur d'essais ;
+   * s'il est bon, l'enregistrement est réécrit en format 2 avant de rendre DK (le PIN n'est plus jamais demandé).
+   */
+  async load(origin: string, deviceId: string, pin: string | null = null): Promise<Uint8Array<ArrayBuffer>> {
+    const ref = this.ref(origin, deviceId);
 
     return this.exclusive(ref.key, async () => {
-      const record = await this.read(ref.key);
+      const stored = await this.read(ref.key);
+      if (stored.v === 2) return this.openV2(stored, ref);
+
+      if (typeof pin !== 'string' || pin.length === 0) throw new VaultError('pin-required');
+      this.assertPinFormat(pin);
+      const record = stored;
       const now = this.now();
       if (record.lockedUntil !== null && record.lockedUntil > now) {
         throw new VaultError('locked', undefined, Math.ceil((record.lockedUntil - now) / 1000));
@@ -150,7 +141,8 @@ export class Vault {
         }
 
         try {
-          await this.storage.set(ref.key, { ...record, failures: 0, lockedUntil: null } satisfies VaultRecordV1);
+          // Migration : le PIN a servi une dernière fois, la même DK est réécrite en format 2.
+          await this.writeV2(ref, dk);
         } catch (e) {
           dk.fill(0);
           throw e;
@@ -186,9 +178,10 @@ export class Vault {
         origin: parsed.origin,
         deviceId: parsed.deviceId,
         readable: record !== null,
+        pin: record?.v === 1,
         createdAt: record?.createdAt ?? null,
-        failures: record?.failures ?? null,
-        lockedUntil: record?.lockedUntil ?? null,
+        failures: record?.v === 1 ? record.failures : null,
+        lockedUntil: record?.v === 1 ? record.lockedUntil : null,
       });
     }
     return entries.sort((a, b) => a.origin.localeCompare(b.origin) || a.deviceId.localeCompare(b.deviceId));
@@ -207,7 +200,7 @@ export class Vault {
     }
   }
 
-  private async read(key: string): Promise<VaultRecordV1> {
+  private async read(key: string): Promise<VaultRecord> {
     const raw = await this.storage.get(key);
     if (raw === undefined) throw new VaultError('missing');
     const record = parseRecord(raw, this.minIterations);
@@ -230,6 +223,21 @@ export class Vault {
     const key = await this.deviceKey();
     try {
       return await aesGcmOpen(key, fromB64(record.wrapped)!, aadDeviceSecret(ref.origin, ref.deviceId));
+    } catch {
+      throw new VaultError('unavailable', 'Enregistrement illisible : second secret absent, ou enregistrement déplacé.');
+    }
+  }
+
+  private async writeV2(ref: { origin: string; deviceId: string; key: string }, dk: Uint8Array<ArrayBuffer>): Promise<void> {
+    const wrapped = await aesGcmSeal(await this.deviceKey(), dk, aadDeviceSecretV2(ref.origin, ref.deviceId));
+    const record: VaultRecordV2 = { v: RECORD_VERSION as 2, wrapped: toB64(wrapped), createdAt: this.now() };
+    await this.storage.set(ref.key, record);
+  }
+
+  private async openV2(record: VaultRecordV2, ref: { origin: string; deviceId: string }): Promise<Uint8Array<ArrayBuffer>> {
+    const key = await this.deviceKey();
+    try {
+      return await aesGcmOpen(key, fromB64(record.wrapped)!, aadDeviceSecretV2(ref.origin, ref.deviceId));
     } catch {
       throw new VaultError('unavailable', 'Enregistrement illisible : second secret absent, ou enregistrement déplacé.');
     }

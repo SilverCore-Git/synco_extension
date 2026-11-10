@@ -16,13 +16,18 @@ WebAuthn avec extension PRF (matériel), PIN local (IndexedDB de l'origine de la
 coffre `extension`.
 
 Le coffre `extension` garde DK **hors de l'origine de la page** : dans le stockage de l'extension, inaccessible au
-JavaScript de `https://app.synco.one`. Le PIN est saisi dans une fenêtre de l'extension, jamais dans la page.
+JavaScript de `https://app.synco.one`. La page n'obtient DK qu'après l'accord de l'utilisateur, donné dans une fenêtre
+de l'extension (bouton « Autoriser ») : aucun code à retenir.
+
+Jusqu'à la version 2 du format d'enregistrement, DK était aussi scellée par un PIN de 4 chiffres. Ce PIN ajoutait de la
+friction sans protéger contre la copie du profil (16.7, M10) ; il a été retiré. Un ancien enregistrement le demande une
+dernière fois, puis est réécrit sans PIN (16.5).
 
 Ce que le coffre n'est pas :
 
 - un gestionnaire de passkeys : il n'intercepte pas `navigator.credentials` et ne fait pas de WebAuthn ;
 - un service pour d'autres sites : il ne répond qu'aux origines Synco de la liste blanche ;
-- une session de déverrouillage : chaque `load` redemande le PIN ;
+- une session de déverrouillage : chaque `load` redemande l'accord ;
 - un composant réseau : le coffre ne fait aucun appel réseau, aucune télémétrie, et ne journalise rien.
 
 L'extension a un second rôle, les **actions de page** (tous sites, voir [page-actions.md](page-actions.md)). Ce
@@ -32,23 +37,23 @@ module n'importe rien du coffre et n'a pas accès à son stockage ; un test d'im
 
 L'extension expose les opérations de l'interface `DeviceVault` de l'application, avec ses codes d'erreur.
 
-| Opération | Arguments | Résultat | PIN demandé |
+| Opération | Arguments | Résultat | Fenêtre de l'extension |
 | --- | --- | --- | --- |
 | `status` | aucun | `{ present, protocol, version, allowedOrigins, records }` | non |
 | `has` | `deviceId` | `{ exists }` | non |
-| `create` | `deviceId`, `reason?` | `{ dk }` (nouvelle DK, remplace l'enregistrement existant) | oui, deux fois |
-| `load` | `deviceId`, `reason?` | `{ dk }` | oui |
+| `create` | `deviceId`, `reason?` | `{ dk }` (nouvelle DK, remplace l'enregistrement existant) | oui : accord |
+| `load` | `deviceId`, `reason?` | `{ dk }` | oui : accord (PIN pour un ancien enregistrement, une dernière fois) |
 | `remove` | `deviceId` | `{ removed: true }` (idempotent) | non |
 | `cancel` | aucun | `{ cancelled }` : vrai si une invite de cette origine et de cet onglet a été fermée | non |
 
 - `deviceId` est un UUID. `records` ne liste que les `deviceId` de **l'origine appelante** ; `has` ne renseigne que sur
   elle.
-- `remove` ne demande pas de PIN : supprimer est toujours permis (déconnexion d'un appareil, réinitialisation).
+- `remove` n'ouvre pas de fenêtre : supprimer est toujours permis (déconnexion d'un appareil, réinitialisation).
 - `dk` arrive dans la page comme un `ArrayBuffer` de 32 octets transféré. L'application l'efface (`fill(0)`) dès
   qu'elle a ouvert la clé privée de l'appareil.
 
 Capacités à déclarer côté application : `kind = 'extension'`, `hardwareBacked = false`, `biometric = false`,
-`needsPin = false` (le PIN est géré par l'extension), `rateLimit = 'software'`.
+`needsPin = false` (aucun PIN côté application), `rateLimit = 'software'`.
 
 ### Codes d'erreur
 
@@ -113,17 +118,22 @@ Le content script est injecté à `document_start` : il écoute avant que les sc
 L'application envoie `hello` et attend `ready` pendant un court délai. Sans réponse, elle conclut « extension
 absente » ; elle ne doit jamais bloquer. Une réponse `ready` ne prouve pas l'identité de l'extension (voir 16.7, M7).
 
-## 16.4 Saisie du PIN
+## 16.4 Invite de l'extension
 
 `create` et `load` ouvrent une **fenêtre de l'extension**, `windows.create({ type: 'popup' })`, qui fonctionne sur
 Chrome et sur Firefox.
 
-Ce que la fenêtre affiche, avec le même pavé que le PIN local de Synco (`PinPad.vue`) : le logo et « Synco Extension »
-(provenance), un titre et une ligne d'aide, quatre cases qui se remplissent en vert, la ligne d'erreur, le pavé
-(touches bordées de vert, puis EFFACER · 0 · OK ; clavier physique accepté), « Annuler », et une ligne de limite
-(effacement après 10 erreurs). Le code saisi ici fait **4 chiffres**, comme le PIN local (le coffre accepte toujours
-4 à 32) : au déverrouillage, il part **dès le 4e chiffre** ; pour en choisir un, jamais (on relit, puis OK). Aucun
-décor : un indicateur pendant la connexion, une coche à la réussite, une croix à l'échec.
+**Cas normal : un accord.** La fenêtre affiche le logo et « Synco Extension » (provenance), un titre (« Ouvrir
+Synco ? », ou « Protéger cet appareil » pour `create`), une ligne d'aide, un bouton **Autoriser** et « Annuler ». Aucun
+code n'est demandé. Le geste de l'utilisateur dans une fenêtre que la page ne peut ni ouvrir seule, ni lire, ni
+cliquer est ce qui sépare la page de DK.
+
+**Ancien enregistrement (format 1) : le PIN, une dernière fois.** La fenêtre affiche le même pavé que le PIN local de
+Synco (`PinPad.vue`) : quatre cases qui se remplissent en vert, la ligne d'erreur, le pavé (EFFACER · 0 · OK, clavier
+physique accepté), « Annuler », et une ligne de limite (effacement après 10 erreurs). Le code saisi fait **4 chiffres**
+et part dès le 4e chiffre. Le bon PIN rend DK et l'enregistrement est réécrit au format 2 : le PIN n'est plus jamais
+demandé. Le worker refuse une réponse qui ne correspond pas au cas (un PIN pour un enregistrement sans PIN, un accord
+nu pour un ancien enregistrement) sans clore l'invite.
 
 **Placement.** La fenêtre (420 × 660 px) s'ouvre à droite de la carte que l'application affiche pendant la demande, au même
 niveau : la paire est centrée sur la page (disposition convenue avec l'application, qui décale sa carte d'autant). Le
@@ -142,8 +152,8 @@ attente reçoit `cancelled`. Une autre origine ou un autre onglet ne peut pas fe
 alors `{ cancelled: false }`). Une extension plus ancienne qui ne connaît pas `cancel` répond `bad-request` : l'application
 l'ignore, la fenêtre se ferme alors d'elle-même au bout de 2 minutes ou quand l'utilisateur la ferme.
 
-`create` demande le PIN deux fois et signale qu'il remplacera un enregistrement existant. Le PIN compte de 4 à 32
-chiffres.
+`create` demande un accord et signale qu'il remplacera un enregistrement existant. Le PIN des anciens enregistrements
+compte de 4 à 32 chiffres.
 
 Garde-fous :
 
@@ -153,9 +163,9 @@ Garde-fous :
 | Limite par origine | 3 invites par minute (fenêtre glissante), au-delà `locked` sans fenêtre |
 | Durée d'une invite | 2 minutes, puis `cancelled` |
 | Fenêtre fermée, onglet demandeur fermé | `cancelled` |
-| Mauvais PIN | la saisie reprend dans la même invite ; le compteur d'essais (16.5) s'applique |
+| Mauvais PIN (ancien enregistrement) | la saisie reprend dans la même invite ; le compteur d'essais (16.5) s'applique |
 
-Le PIN n'existe que dans la page d'invite et dans le worker. Ses octets sont effacés après la dérivation ; la chaîne
+Pour un ancien enregistrement, le PIN n'existe que dans la page d'invite et dans le worker. Ses octets sont effacés après la dérivation ; la chaîne
 JavaScript ne peut pas l'être (voir 16.8). Si l'invite expire pendant la vérification, la DK obtenue est effacée et
 n'est remise à personne.
 
@@ -164,14 +174,28 @@ identifiant aléatoire de 128 bits, et seul le worker en tient la correspondance
 
 ## 16.5 Stockage et cryptographie
 
-### Enregistrement (format `v: 1`)
+### Enregistrement (format `v: 2`, écrit)
 
 Clé `storage.local` : `vault:<origine>:<deviceId>`. L'espace de noms par origine empêche une origine Synco d'ouvrir
 les enregistrements d'une autre (développement et production, par exemple).
 
 | Champ | Contenu |
 | --- | --- |
-| `v` | `1` ; toute autre version est refusée à la lecture (`unavailable`), jamais réécrite |
+| `v` | `2` |
+| `wrapped` | `IV ‖ AES-GCM(K2, DK, AAD = "synco-ext-vault|v2|<origine>|<deviceId>|k2")`, base64 (60 octets) |
+| `createdAt` | instant de création (ms) |
+
+`create` écrit toujours ce format. Une version inconnue est refusée à la lecture (`unavailable`), jamais réécrite.
+
+### Ancien enregistrement (format `v: 1`, lu seulement)
+
+Écrit par les versions de l'extension qui demandaient un PIN. Il est encore lu : le bon PIN rend DK, puis
+l'enregistrement est réécrit au format 2 (même DK). Si la réécriture échoue, DK n'est pas rendue et l'ancien
+enregistrement reste intact.
+
+| Champ | Contenu |
+| --- | --- |
+| `v` | `1` |
 | `salt` | 16 octets aléatoires (base64) |
 | `iterations` | 600 000 (PBKDF2-SHA-256), refusé en dessous ou au-delà de 10 000 000 |
 | `wrapped` | double scellement de DK (ci-dessous), base64 |
@@ -182,7 +206,7 @@ les enregistrements d'une autre (développement et production, par exemple).
 Un enregistrement altéré ou de forme inattendue est traité comme illisible. Il reste listé dans la page d'options
 pour pouvoir être supprimé.
 
-### Double scellement
+### Double scellement (ancien format)
 
 ```
 clé PIN    = PBKDF2-SHA-256(PIN, salt, 600 000 itérations) → AES-256-GCM
@@ -197,7 +221,7 @@ wrapped    = IV ‖ AES-GCM(K2,      intérieur,  AAD = "synco-ext-vault|v1|<ori
   dans l'IndexedDB de l'extension. Le JavaScript ne peut pas en lire les octets, seulement l'utiliser depuis l'origine
   de l'extension.
 
-### Compteur d'essais
+### Compteur d'essais (ancien format)
 
 | Échec n° | Effet |
 | --- | --- |
@@ -227,7 +251,7 @@ ont un état.
 
 **Actifs** :
 - DK, et à travers elle la clé privée de l'appareil ;
-- le PIN ;
+- le PIN d'un ancien enregistrement, tant qu'il n'a pas été migré ;
 - l'intégrité du compteur d'essais ;
 - la disponibilité de l'enregistrement (le perdre oblige à relier l'appareil).
 
@@ -244,6 +268,7 @@ ont un état.
 - A3, une autre extension installée dans le même navigateur ;
 - A4, un attaquant qui obtient une copie du profil du navigateur (vol de disque, sauvegarde, logiciel malveillant
   sans privilèges de débogage) ;
+- A4b, une personne qui utilise la session ouverte de l'utilisateur (ordinateur laissé déverrouillé) ;
 - A5, un logiciel malveillant qui contrôle la session de l'utilisateur sur la machine ;
 - A6, une compromission de la chaîne de publication de l'extension.
 
@@ -252,17 +277,18 @@ ont un état.
 | # | Menace | Réponse | Reste |
 | --- | --- | --- | --- |
 | M1 | A1 lit le coffre directement (comme l'IndexedDB du coffre PIN de la page) | Les données sont dans l'origine de l'extension, hors de portée du JavaScript de la page. L'enregistrement ne peut pas être exfiltré pour un essai hors ligne. | — |
-| M2 | A1 appelle `load` en silence | Chaque `load` ouvre une fenêtre de l'extension qui exige le PIN ; une invite à la fois ; 3 par minute ; 2 minutes au plus. | Si l'utilisateur tape son PIN dans une invite déclenchée par A1, A1 reçoit DK. L'invite ne distingue pas l'application d'un script injecté dans l'application : A1 *est* sur la bonne origine, donc afficher l'origine n'aiderait pas. |
-| M3 | A1 devine le PIN par l'interface | Chaque essai passe par la fenêtre de l'extension (geste de l'utilisateur), avec le compteur 16.5 et l'effacement au 10ᵉ échec. | — |
+| M2 | A1 appelle `load` en silence | Chaque `load` ouvre une fenêtre de l'extension qui exige un geste de l'utilisateur (« Autoriser ») ; une invite à la fois ; 3 par minute ; 2 minutes au plus. | Si l'utilisateur autorise une invite déclenchée par A1, A1 reçoit DK. Un PIN n'y changeait rien : l'utilisateur le tapait de la même façon. L'invite ne distingue pas l'application d'un script injecté dans l'application : A1 *est* sur la bonne origine, donc afficher l'origine n'aiderait pas. |
+| M3 | A1 devine le PIN d'un ancien enregistrement par l'interface | Chaque essai passe par la fenêtre de l'extension (geste de l'utilisateur), avec le compteur 16.5 et l'effacement au 10ᵉ échec. Format 2 : aucun secret à deviner. | — |
 | M4 | A1 efface l'enregistrement (`remove`) ou le remplace (`create`) | `remove` sans PIN est un choix (on peut toujours se déconnecter) ; `create` passe par l'invite, qui signale le remplacement. | Déni de service : l'appareil doit être relié de nouveau. Aucune fuite de clé. |
 | M5 | A1 sonde l'existence d'enregistrements | `status` et `has` ne parlent que de l'origine appelante. | A1 apprend les `deviceId` de cette origine, que l'application connaît déjà. |
 | M6 | A2 parle au coffre depuis une autre origine ou une iframe | Content script injecté seulement sur les origines de la liste blanche, cadre principal, sans `all_frames`. Le content script vérifie l'origine exacte, port compris ; le worker revérifie `sender` (`frameId === 0`, origine exacte), jamais un champ du message. Pas d'`externally_connectable`, pas de `web_accessible_resources`. | — |
 | M7 | A1 ou A3 se fait passer pour l'extension (faux `ready`, faux port) | Aucune : l'extension **authentifie la page, pas l'inverse**. Un script de la page ou une autre extension peut imiter ses messages. | Un faux coffre peut fournir à l'application une DK qu'il connaît. Il faut déjà exécuter du code dans la page (A1), qui voit de toute façon DK une fois déverrouillée. L'application ne doit pas présenter la détection de l'extension comme une preuve d'identité. |
 | M8 | A3 avec accès à tous les sites injecte du code dans la page Synco | Équivaut à A1. A3 ne peut pas envoyer de message au worker en se faisant passer pour le content script : le worker vérifie `sender.id`. | Comme M2 et M7. |
-| M9 | A3 ou un site affiche une fausse fenêtre de PIN pour hameçonner le PIN | La vraie invite est une fenêtre de l'extension, ouverte uniquement après une action de l'application. | Une imitation visuelle reste possible ; le PIN seul ne suffit pas sans l'enregistrement (M10). |
-| M10 | A4 copie le profil | La copie donne `storage.local` **et** l'IndexedDB contenant K2 : K2 n'est pas du matériel et ne lie pas l'enregistrement à la machine. Restent PBKDF2 à 600 000 itérations et le PIN. | **Un PIN de 4 chiffres ne protège pas contre A4** : 10 000 essais hors ligne sont à la portée d'un ordinateur ordinaire. Un PIN plus long augmente le coût. Contre ce risque, une passkey PRF matérielle est le bon coffre. |
-| M11 | A4 ou A5 modifie l'enregistrement pour remettre le compteur à zéro | Le compteur est une donnée du profil, pas un secret : un attaquant qui écrit sur le disque peut le remettre à zéro. | Le compteur protège contre A1, pas contre A4 ou A5, qui ont de toute façon l'essai hors ligne (M10). |
+| M9 | A3 ou un site affiche une fausse fenêtre de l'extension | La vraie invite est une fenêtre de l'extension, ouverte uniquement après une action de l'application. Format 2 : il n'y a plus de PIN à hameçonner. | Une imitation visuelle reste possible ; un clic dans une fausse fenêtre ne donne rien. |
+| M10 | A4 copie le profil | Aucune au format 2 : la copie donne `storage.local` **et** l'IndexedDB contenant K2, qui suffisent à ouvrir DK. K2 n'est pas du matériel et ne lie pas l'enregistrement à la machine. | **L'extension ne protège pas contre A4.** Le PIN de 4 chiffres ne le faisait pas non plus : 10 000 essais hors ligne sont à la portée d'un ordinateur ordinaire. Contre ce risque, une passkey PRF matérielle est le bon coffre. |
+| M11 | A4 ou A5 modifie un ancien enregistrement pour remettre le compteur à zéro | Le compteur est une donnée du profil, pas un secret : un attaquant qui écrit sur le disque peut le remettre à zéro. | Le compteur protège contre A1, pas contre A4 ou A5, qui ont de toute façon l'essai hors ligne (M10). |
 | M12 | A5 lit la mémoire du navigateur ou enregistre le clavier | Hors de portée d'une extension. | Aucune protection. |
+| M12b | A4b utilise la session ouverte et autorise lui-même l'invite | Aucune : sans PIN, l'invite ne distingue pas l'utilisateur d'une autre personne devant l'écran. | Choix assumé pour retirer la friction : c'est le verrouillage de session du système qui protège un ordinateur laissé seul. |
 | M13 | Un enregistrement est copié vers une autre origine ou un autre `deviceId` | AAD liée à l'origine et à l'appareil sur les deux couches ; la clé de stockage porte l'origine. | — |
 | M14 | Fuite de DK ou du PIN par les journaux, le réseau ou des diagnostics | Aucun `console.*`, aucun appel réseau dans le worker, le content script et le coffre (tests statiques). Le diagnostic du build de développement n'écrit que des étiquettes fixes, et la construction de production échoue s'il est présent. | Les chaînes (PIN saisi, DK en base64) ne s'effacent pas (16.8). |
 | M15 | Contenu de la page injecté dans l'interface de l'extension (raison, titres) | Texte inséré par `textContent` uniquement, plafonné, caractères de contrôle et bidi neutralisés. CSP `script-src 'self'; object-src 'none'`, sans script en ligne ni `eval`. | — |
@@ -274,10 +300,11 @@ ont un état.
 ## 16.8 Limites assumées
 
 - **L'extension n'est pas un coffre matériel.** Son gain est l'isolation par rapport à l'origine de la page et le
-  passage obligé par une fenêtre de l'extension, pas la résistance au vol de profil (M10, M11).
+  passage obligé par une fenêtre de l'extension, pas la résistance au vol de profil (M10, M11) ni à une personne
+  devant une session ouverte (M12b).
 - **Les chaînes ne s'effacent pas.** Les octets de clés (`Uint8Array`) sont effacés avec `fill(0)`. Restent en
   mémoire jusqu'au ramasse-miettes :
-  - le PIN saisi (chaîne) ;
+  - le PIN saisi pour un ancien enregistrement (chaîne) ;
   - DK en base64, le temps d'un aller entre le worker et le content script ;
   - les messages JSON.
 

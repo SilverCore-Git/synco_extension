@@ -17,7 +17,7 @@ import { authenticateSender, isExtensionPage, type SenderLike } from './auth';
 import type { PromptManager } from './prompt';
 
 export interface RouterDeps {
-  vault: Pick<Vault, 'create' | 'load' | 'remove' | 'has' | 'list'>;
+  vault: Pick<Vault, 'create' | 'load' | 'needsPin' | 'remove' | 'has' | 'list'>;
   prompts: PromptManager;
   allowedOrigins: readonly string[];
   extensionId: string;
@@ -100,6 +100,8 @@ export class Router {
         const { deviceId } = req.args;
         const exists = await vault.has(origin, deviceId);
         if (req.op === 'load' && !exists) throw new VaultError('missing');
+        // Seul un ancien enregistrement à PIN demande encore le PIN (une dernière fois, puis il est réécrit sans).
+        const needsPin = req.op === 'load' && (await vault.needsPin(origin, deviceId));
 
         const dk = await prompts.run<Uint8Array<ArrayBuffer>>({
           origin,
@@ -107,7 +109,8 @@ export class Router {
           mode: req.op,
           reason: sanitizeReason(req.args.reason),
           replacing: req.op === 'create' && exists,
-          attempt: (pin) => (req.op === 'create' ? vault.create(origin, deviceId, pin) : vault.load(origin, deviceId, pin)),
+          needsPin,
+          attempt: (pin) => (req.op === 'create' ? vault.create(origin, deviceId) : vault.load(origin, deviceId, pin)),
         });
         try {
           return { dk: toB64(dk) }; // la chaîne ne s'efface pas : elle ne fait qu'un trajet, vers le content script
@@ -118,7 +121,7 @@ export class Router {
     }
   }
 
-  // ---- Page d'invite du PIN ----
+  // ---- Page d'invite (accord, ou PIN d'un ancien enregistrement) ----
 
   private async handlePrompt(m: Record<string, unknown>, sender: SenderLike | undefined): Promise<unknown> {
     const ctx = { extensionId: this.deps.extensionId, baseUrl: this.deps.baseUrl };
@@ -138,8 +141,12 @@ export class Router {
         prompts.cancel(sessionId);
         return { ok: true };
       case 'submit': {
-        if (typeof m.pin !== 'string' || m.pin.length > 64) return { ok: false, error: { code: 'bad-request', terminal: false } };
-        return await prompts.submit(sessionId, m.pin);
+        // Sans PIN (cas normal) : `pin` absent ou null. Ancien enregistrement : une chaîne courte.
+        const pin = m.pin === undefined || m.pin === null ? null : m.pin;
+        if (pin !== null && (typeof pin !== 'string' || pin.length > 64)) {
+          return { ok: false, error: { code: 'bad-request', terminal: false } };
+        }
+        return await prompts.submit(sessionId, pin);
       }
       default:
         return { ok: false, error: { code: 'bad-request' } };

@@ -42,7 +42,7 @@ export interface ErrorBody {
 
 export type Args = {
   status: Record<string, never>;
-  /** La page abandonne sa demande de PIN en cours : la fenêtre de l'extension se ferme. */
+  /** La page abandonne sa demande en cours : la fenêtre de l'extension se ferme. */
   cancel: Record<string, never>;
   has: { deviceId: string };
   remove: { deviceId: string };
@@ -63,11 +63,11 @@ export interface VaultEnvelope {
   request: Request;
 }
 
-/** Messages de la page d'invite du PIN (page de l'extension) vers le worker. */
+/** Messages de la page d'invite (page de l'extension) vers le worker. */
 export type PromptMessage =
   | { kind: 'prompt'; type: 'hello'; sessionId: string }
   | { kind: 'prompt'; type: 'ping'; sessionId: string }
-  | { kind: 'prompt'; type: 'submit'; sessionId: string; pin: string }
+  | { kind: 'prompt'; type: 'submit'; sessionId: string; pin?: string | null }
   | { kind: 'prompt'; type: 'cancel'; sessionId: string };
 
 /** Messages de la page d'options vers le worker. */

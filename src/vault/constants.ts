@@ -21,8 +21,12 @@ export const MAX_FAILURES = 10;
 export const FREE_FAILURES = 5;
 export const BACKOFF_STEPS_SECONDS = [30, 120, 600, 3600, 86400] as const;
 
-/** `wrapped` décodé : IV(12) + [IV(12) + DK(32) + tag(16)] + tag(16). */
+/** `wrapped` v1 décodé : IV(12) + [IV(12) + DK(32) + tag(16)] + tag(16). */
 export const WRAPPED_LENGTH = IV_LENGTH + (IV_LENGTH + DK_LENGTH + GCM_TAG_LENGTH) + GCM_TAG_LENGTH;
+/** `wrapped` v2 décodé : IV(12) + DK(32) + tag(16) (une seule couche, le second secret). */
+export const WRAPPED_V2_LENGTH = IV_LENGTH + DK_LENGTH + GCM_TAG_LENGTH;
 
-export const RECORD_VERSION = 1;
+/** Format écrit par `create` (sans PIN). Le format 1 (scellé par un PIN) reste lu, puis réécrit en 2. */
+export const RECORD_VERSION = 2;
+export const LEGACY_PIN_RECORD_VERSION = 1;
 export const KEY_PREFIX = 'vault:';

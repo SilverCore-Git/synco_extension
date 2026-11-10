@@ -1,9 +1,31 @@
 import { isUuid, UUID_LENGTH } from '../shared/origin';
 import { isValidOrigin } from '../shared/origin';
-import { MAX_FAILURES, MAX_ITERATIONS, KEY_PREFIX, RECORD_VERSION, SALT_LENGTH, WRAPPED_LENGTH } from './constants';
+import {
+  KEY_PREFIX,
+  LEGACY_PIN_RECORD_VERSION,
+  MAX_FAILURES,
+  MAX_ITERATIONS,
+  RECORD_VERSION,
+  SALT_LENGTH,
+  WRAPPED_LENGTH,
+  WRAPPED_V2_LENGTH,
+} from './constants';
 import { fromB64 } from './encoding';
 
-/** Enregistrement v1, tel que stocké dans `storage.local`. */
+/**
+ * Enregistrement v2 (format écrit) : sans PIN. DK n'est scellée que par le second secret de l'extension ; l'accès
+ * passe par la fenêtre de l'extension (bouton « Autoriser »), voir doc §16.4.
+ */
+export interface VaultRecordV2 {
+  v: 2;
+  /** IV ‖ AES-GCM_secret(DK), base64. */
+  wrapped: string;
+  createdAt: number;
+}
+
+export type VaultRecord = VaultRecordV1 | VaultRecordV2;
+
+/** Enregistrement v1 (ancien format, lu seulement) : scellé par un PIN puis par le second secret. */
 export interface VaultRecordV1 {
   v: 1;
   /** Sel PBKDF2 (16 octets, base64). */
@@ -39,10 +61,15 @@ export function parseRecordKey(key: string): { origin: string; deviceId: string 
  * Validation stricte à la lecture. Retourne `null` pour une version inconnue ou tout enregistrement altéré :
  * l'appelant le traite comme illisible et ne le modifie pas.
  */
-export function parseRecord(raw: unknown, minIterations: number): VaultRecordV1 | null {
+export function parseRecord(raw: unknown, minIterations: number): VaultRecord | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const r = raw as Record<string, unknown>;
-  if (r.v !== RECORD_VERSION) return null;
+  if (r.v === RECORD_VERSION) {
+    if (fromB64(r.wrapped)?.length !== WRAPPED_V2_LENGTH) return null;
+    if (typeof r.createdAt !== 'number' || !Number.isFinite(r.createdAt)) return null;
+    return { v: 2, wrapped: r.wrapped as string, createdAt: r.createdAt };
+  }
+  if (r.v !== LEGACY_PIN_RECORD_VERSION) return null;
 
   if (fromB64(r.salt)?.length !== SALT_LENGTH) return null;
   if (fromB64(r.wrapped)?.length !== WRAPPED_LENGTH) return null;

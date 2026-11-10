@@ -24,6 +24,8 @@ export function sceneState(phase: Phase): SceneState {
       return 'connecting';
     case 'verifying':
       return 'working';
+    case 'approve':
+      return 'waiting';
     case 'done':
       return 'success';
     case 'fatal':
@@ -91,7 +93,13 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
 
   const countdown = h(doc, 'p', { class: 'muted countdown' });
   const fine = h(doc, 'p', { class: 'fine', text: 'Après 10 erreurs, la clé de cet appareil est effacée.' });
-  const form = h(doc, 'div', { class: 'form' }, dots, error, keypad, actions, countdown, fine);
+  // Pavé : seulement pour un ancien enregistrement scellé par un PIN (demandé une dernière fois).
+  const form = h(doc, 'div', { class: 'form' }, dots, error, keypad, actions, fine);
+
+  // Cas normal : un accord, sans code. Le bouton reste la seule action principale de la fenêtre.
+  const approveBtn = h(doc, 'button', { class: 'primary', attrs: { type: 'button' }, on: { click: handlers.submit } });
+  const approveCancel = h(doc, 'button', { class: 'cancel', attrs: { type: 'button' }, on: { click: handlers.cancel } });
+  const approve = h(doc, 'div', { class: 'approve' }, approveBtn, approveCancel);
 
   const closeBtn = h(doc, 'button', { class: 'primary', text: 'Fermer', attrs: { type: 'button' }, on: { click: handlers.close } });
   const closeRow = h(doc, 'div', { class: 'actions fill' }, closeBtn);
@@ -106,11 +114,15 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     h(doc, 'div', { class: 'heading' }, status.root, title, hint),
     replacing,
     form,
+    approve,
+    countdown,
     closeRow,
   );
 
   function update(view: PromptView): void {
-    const showForm = view.phase === 'enter' || view.phase === 'confirm' || view.phase === 'verifying';
+    const active = view.phase === 'approve' || view.phase === 'enter' || view.phase === 'confirm' || view.phase === 'verifying';
+    const showForm = active && view.pinEntry;
+    const showApprove = active && !view.pinEntry;
     status.set(sceneState(view.phase));
     root.setAttribute('data-phase', view.phase);
     title.textContent = view.title;
@@ -126,7 +138,13 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     dots.setAttribute('class', view.error !== null && view.errorSeq > 0 ? `dots shake-${view.errorSeq % 2 === 0 ? 'a' : 'b'}` : 'dots');
 
     form.hidden = !showForm;
-    closeRow.hidden = showForm || view.phase === 'loading' || view.phase === 'done';
+    approve.hidden = !showApprove;
+    // Un seul bouton porte le libellé à la fois : le pavé et l'accord ne sont jamais affichés ensemble.
+    approveBtn.textContent = !showApprove ? '' : view.phase === 'verifying' ? 'Ouverture…' : view.submitLabel;
+    approveBtn.setAttribute('class', view.phase === 'verifying' ? 'primary busy' : 'primary');
+    approveBtn.disabled = view.phase === 'verifying';
+    approveCancel.textContent = showApprove ? 'Annuler' : '';
+    closeRow.hidden = active || view.phase === 'loading' || view.phase === 'done';
     root.setAttribute('aria-busy', view.phase === 'verifying' || view.phase === 'loading' ? 'true' : 'false');
 
     dots.setAttribute('aria-label', `${view.dots} chiffre${view.dots > 1 ? 's' : ''} saisi${view.dots > 1 ? 's' : ''}`);
@@ -139,7 +157,7 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     );
 
     for (const b of keyButtons) b.disabled = !view.keypadEnabled;
-    submitBtn.textContent = view.submitLabel;
+    submitBtn.textContent = view.pinEntry ? view.submitLabel : 'OK';
     submitBtn.setAttribute('class', view.phase === 'verifying' ? 'primary ok busy' : 'primary ok');
     submitBtn.disabled = !view.canSubmit;
     cancelBtn.disabled = false;

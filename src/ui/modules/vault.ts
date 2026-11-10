@@ -77,7 +77,7 @@ export function vaultHero(o: OptionsState, now: number): Hero | null {
     return {
       tone: 'ok', icon: 'shield-check', action: null,
       title: entries.length === 1 ? 'Cet appareil est protégé' : `${entries.length} appareils protégés`,
-      text: 'Vos clés sont gardées par l\'extension, derrière votre code PIN.',
+      text: 'Vos clés sont gardées par l\'extension, hors de la page Synco.',
     };
   }
   return {
@@ -97,8 +97,8 @@ function renderVaultPopup({ doc, now, state, handlers }: ModuleContext): HTMLEle
     ? card(doc, { label: 'Comment ça marche' },
         h(doc, 'ul', { class: 'points' },
           point('L\'extension garde la clé de cet appareil. Elle ne quitte jamais votre ordinateur.'),
-          point('À chaque connexion, vous tapez votre code PIN dans une petite fenêtre de l\'extension, jamais sur le site.'),
-          point('Après 10 erreurs de code, la clé est effacée : il faudra reconnecter l\'appareil depuis Synco.'),
+          point('À chaque ouverture de Synco, une petite fenêtre de l\'extension vous demande d\'autoriser l\'accès.'),
+          point('Sans votre accord dans cette fenêtre, le site ne peut pas lire la clé.'),
         ),
         handlers.openFull ? h(doc, 'div', { class: 'more' }, button(doc, { label: 'Plus de détails', small: true, onClick: handlers.openFull })) : null,
       )
@@ -164,10 +164,10 @@ function renderVaultFull({ doc, now, state, handlers }: ModuleContext): HTMLElem
   const point = (text: string) => h(doc, 'li', {}, icon(doc, 'shield-check'), h(doc, 'span', { text }));
   const about = card(doc, { title: 'À savoir', icon: 'info-circle-fill' },
         h(doc, 'ul', { class: 'points' },
-          point('Cette extension garde une clé locale par appareil, protégée par votre code PIN. Elle n\'est jamais envoyée à Synco.'),
+          point('Cette extension garde une clé locale par appareil. Elle n\'est jamais envoyée à Synco, et le site ne l\'obtient qu\'avec votre accord dans la fenêtre de l\'extension.'),
           point('Ce n\'est pas un gestionnaire de passkeys : elle ne répond à aucun autre site que Synco.'),
-          point('La clé n\'est pas protégée par du matériel : quelqu\'un qui copierait tout votre profil de navigateur pourrait tester des codes PIN. Après 10 erreurs, la clé est effacée.'),
-          point('Supprimer une clé ne demande pas de code PIN : l\'appareil devra être relié de nouveau depuis Synco.'),
+          point('La clé n\'est pas protégée par du matériel : quelqu\'un qui utilise votre session ou copie votre profil de navigateur peut l\'obtenir. Verrouillez votre ordinateur quand vous le quittez.'),
+          point('Supprimer une clé : l\'appareil devra être relié de nouveau depuis Synco.'),
         ),
       );
 
@@ -189,7 +189,7 @@ function renderVaultFull({ doc, now, state, handlers }: ModuleContext): HTMLElem
     : null;
 
   return h(doc, 'div', { class: 'stack' },
-    panelHeader(doc, 'Coffre de clés', 'Garde la clé de vos appareils Synco hors de la page : le code PIN se saisit dans une fenêtre de l\'extension.'),
+    panelHeader(doc, 'Coffre de clés', 'Garde la clé de vos appareils Synco hors de la page : l\'accès s\'autorise dans une fenêtre de l\'extension.'),
     card(doc, { title: 'Accès aux sites Synco', icon: 'globe2' },
       h(doc, 'p', { class: 'muted', text: 'L\'extension ne répond qu\'à ces adresses exactes. Selon votre navigateur, cet accès doit être accordé par vous : sans lui, Synco ne peut pas utiliser l\'extension.' }),
       h(doc, 'div', { class: 'stack' }, loading ? skeleton(doc) : h(doc, 'ul', { class: 'list' }, ...hostRows)),

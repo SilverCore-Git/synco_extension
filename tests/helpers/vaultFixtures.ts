@@ -1,4 +1,7 @@
+import { aadDeviceSecret, aadPin, aesGcmSeal, deriveKeyFromPin } from '../../src/vault/crypto';
+import { toB64 } from '../../src/vault/encoding';
 import type { DeviceSecret, VaultStorage } from '../../src/vault/ports';
+import { recordKey } from '../../src/vault/record';
 import { Vault, type VaultDeps } from '../../src/vault/vault';
 
 export const ORIGIN = 'https://app.synco.one';
@@ -8,8 +11,9 @@ export const DEVICE_2 = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
 export const PIN = '4821';
 export const WRONG_PIN = '1111';
 
-/** Itérations réduites : seuls les tests de coût réel utilisent la valeur de production. */
-export const FAST = { iterations: 1000, minIterations: 1000 } as const;
+/** Itérations réduites des anciens enregistrements à PIN : seuls les tests de coût réel utilisent la production. */
+export const LEGACY_ITERATIONS = 1000;
+export const FAST = { minIterations: LEGACY_ITERATIONS } as const;
 
 export class MemoryStorage implements VaultStorage {
   readonly data = new Map<string, unknown>();
@@ -60,4 +64,33 @@ export async function caught(fn: () => Promise<unknown>): Promise<{ code?: strin
     return e as never;
   }
   throw new Error('une erreur était attendue');
+}
+
+/**
+ * Écrit un ANCIEN enregistrement (format 1, scellé par un PIN), comme le faisait l'extension avant la suppression du
+ * PIN. Le code de production ne sait plus en créer : seuls les tests en ont besoin, pour la lecture et la migration.
+ */
+export async function seedLegacy(
+  storage: VaultStorage,
+  secret: DeviceSecret,
+  opts: { origin?: string; deviceId?: string; pin?: string; iterations?: number; now?: number } = {},
+): Promise<Uint8Array<ArrayBuffer>> {
+  const origin = opts.origin ?? ORIGIN;
+  const deviceId = (opts.deviceId ?? DEVICE).toLowerCase();
+  const iterations = opts.iterations ?? LEGACY_ITERATIONS;
+  const dk = crypto.getRandomValues(new Uint8Array(32));
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const pinKey = await deriveKeyFromPin(opts.pin ?? PIN, salt, iterations);
+  const inner = await aesGcmSeal(pinKey, dk, aadPin(origin, deviceId));
+  const wrapped = await aesGcmSeal(await secret.getKey(), inner, aadDeviceSecret(origin, deviceId));
+  await storage.set(recordKey(origin, deviceId), {
+    v: 1,
+    salt: toB64(salt),
+    iterations,
+    wrapped: toB64(wrapped),
+    failures: 0,
+    lockedUntil: null,
+    createdAt: opts.now ?? 1_800_000_000_000,
+  });
+  return dk;
 }

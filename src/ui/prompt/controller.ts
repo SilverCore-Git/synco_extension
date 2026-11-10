@@ -1,13 +1,15 @@
 import type { PromptInfo, SubmitOutcome } from '../../background/prompt';
 import { describeError } from '../format';
 
-export type Phase = 'loading' | 'enter' | 'confirm' | 'verifying' | 'fatal' | 'done' | 'expired';
+/** `approve` : le cas normal, un bouton « Autoriser ». `enter`/`confirm` : le pavé, pour un ancien enregistrement à PIN. */
+export type Phase = 'loading' | 'approve' | 'enter' | 'confirm' | 'verifying' | 'fatal' | 'done' | 'expired';
 
 /** Canal vers le worker : la page d'invite ne parle qu'à lui, jamais à la page web. */
 export interface PromptBackend {
   hello(): Promise<{ ok: true; info: PromptInfo } | { ok: false }>;
   ping(): Promise<boolean>;
-  submit(pin: string): Promise<SubmitOutcome>;
+  /** `null` : accord sans PIN (bouton « Autoriser »). */
+  submit(pin: string | null): Promise<SubmitOutcome>;
   cancel(): Promise<void>;
 }
 
@@ -17,6 +19,8 @@ export interface PromptView {
   origin: string | null;
   reason: string | null;
   replacing: boolean;
+  /** Le pavé est affiché (ancien enregistrement à PIN) ; sinon, le bouton « Autoriser ». */
+  pinEntry: boolean;
   title: string;
   hint: string;
   error: string | null;
@@ -96,7 +100,7 @@ export class PromptController {
       this.fail(describeError('cancelled'));
     } else {
       this.info = res.info;
-      this.phase = 'enter';
+      this.phase = res.info.needsPin ? 'enter' : 'approve';
     }
     this.notify();
   }
@@ -129,6 +133,7 @@ export class PromptController {
   }
 
   async submit(): Promise<void> {
+    if (this.phase === 'approve') return this.send(null);
     if (!this.canType() || !this.info) return;
     if (this.pin.length !== PIN_LENGTH) {
       this.fail(`Le code doit contenir ${PIN_LENGTH} chiffres.`);
@@ -156,6 +161,12 @@ export class PromptController {
     const pin = this.pin;
     this.pin = '';
     this.first = '';
+    return this.send(pin);
+  }
+
+  /** Envoie l'accord (`null`) ou le PIN au worker et affiche l'issue. */
+  private async send(pin: string | null): Promise<void> {
+    if (!this.info) return;
     this.error = null;
     this.phase = 'verifying';
     this.notify();
@@ -200,7 +211,7 @@ export class PromptController {
   /** À appeler chaque seconde : compte à rebours, expiration, signe de vie vers le worker. */
   tick(): void {
     const now = this.now();
-    const active = this.phase === 'enter' || this.phase === 'confirm' || this.phase === 'verifying';
+    const active = this.phase === 'approve' || this.phase === 'enter' || this.phase === 'confirm' || this.phase === 'verifying';
     if (this.info && active && now >= this.info.expiresAt) {
       this.expire();
       return;
@@ -225,6 +236,7 @@ export class PromptController {
     const info = this.info;
     const locked = this.isLocked();
     const typing = this.phase === 'enter' || this.phase === 'confirm';
+    const approving = this.phase === 'approve';
     const mode = info?.mode ?? null;
     const now = this.now();
     return {
@@ -233,6 +245,7 @@ export class PromptController {
       origin: info?.origin ?? null,
       reason: info?.reason ?? null,
       replacing: info?.replacing ?? false,
+      pinEntry: info?.needsPin ?? false,
       title: this.title(),
       hint: this.hint(),
       error: this.error,
@@ -240,9 +253,9 @@ export class PromptController {
       dots: this.pin.length,
       slots: PIN_LENGTH,
       keypadEnabled: typing && !locked,
-      canSubmit: typing && !locked && info !== null && this.pin.length === PIN_LENGTH,
-      submitLabel: 'OK',
-      remainingSeconds: info && typing ? Math.max(0, Math.ceil((info.expiresAt - now) / 1000)) : null,
+      canSubmit: approving || (typing && !locked && info !== null && this.pin.length === PIN_LENGTH),
+      submitLabel: info?.needsPin ? 'OK' : 'Autoriser',
+      remainingSeconds: info && (typing || approving) ? Math.max(0, Math.ceil((info.expiresAt - now) / 1000)) : null,
       lockSeconds: locked && this.lockedUntil !== null ? Math.ceil((this.lockedUntil - now) / 1000) : null,
     };
   }
@@ -283,9 +296,12 @@ export class PromptController {
         return 'Impossible de continuer';
       case 'expired':
         return 'Demande expirée';
+      case 'approve':
+        return create ? 'Protéger cet appareil' : 'Ouvrir Synco ?';
       case 'verifying':
-        // Le titre ne change pas pendant la vérification : le bouton dit « Vérification… ».
-        return create ? 'Confirmez votre code' : 'Entrez votre code PIN';
+        // Le titre ne change pas pendant la vérification.
+        if (!this.info?.needsPin) return create ? 'Protéger cet appareil' : 'Ouvrir Synco ?';
+        return 'Entrez votre code PIN';
       default:
         if (create) return this.phase === 'confirm' ? 'Confirmez votre code' : 'Choisissez un code PIN';
         return 'Entrez votre code PIN';
@@ -296,8 +312,13 @@ export class PromptController {
     const info = this.info;
     if (this.phase === 'done') return 'Vous pouvez retourner sur Synco.';
     if (this.phase === 'verifying') return '';
+    if (info && this.phase === 'approve') {
+      return info.mode === 'create'
+        ? 'L\'extension gardera la clé de vos messages pour cet appareil.'
+        : 'Autorisez Synco à ouvrir vos messages sur cet appareil.';
+    }
     if (!info || (this.phase !== 'enter' && this.phase !== 'confirm')) return '';
-    if (info.mode === 'load') return 'Pour ouvrir Synco sur cet appareil.';
+    if (info.mode === 'load') return 'Une dernière fois : il ne sera plus demandé ensuite.';
     if (this.phase === 'confirm') return 'Saisissez le même code une seconde fois.';
     return `${PIN_LENGTH} chiffres, pour protéger la clé de cet appareil.`;
   }

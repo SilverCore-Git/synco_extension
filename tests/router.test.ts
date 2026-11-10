@@ -3,15 +3,15 @@ import { fromB64 } from '../src/vault/encoding';
 import { recordKey } from '../src/vault/record';
 import { Router } from '../src/background/router';
 import { ALLOWED, BASE, EXT_ID, makeBackground, optionsSender, pageSender, popupSender, promptSender, until } from './helpers/bgFixtures';
-import { DEVICE, DEVICE_2, FAST, ORIGIN, OTHER_ORIGIN, PIN, WRONG_PIN } from './helpers/vaultFixtures';
+import { DEVICE, DEVICE_2, ORIGIN, OTHER_ORIGIN, PIN, seedLegacy, WRONG_PIN } from './helpers/vaultFixtures';
 
 type Resp = { id: number | null; ok: boolean; result?: any; error?: { code: string; message?: string; retryAfterSeconds?: number } };
 
-describe('opérations sans PIN', () => {
+describe('opérations sans fenêtre', () => {
   test('status : présence, version du protocole, origines autorisées, enregistrements de CETTE origine', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
-    await bg.vault.create(OTHER_ORIGIN, DEVICE_2, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
+    await bg.vault.create(OTHER_ORIGIN, DEVICE_2);
     const r = (await bg.router.handle(bg.vaultMsg('status'), pageSender(ORIGIN))) as Resp;
     expect(r).toEqual({
       id: 1,
@@ -22,7 +22,7 @@ describe('opérations sans PIN', () => {
 
   test('has et remove : limités à l\'origine appelante', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
 
     const other = (await bg.router.handle(bg.vaultMsg('has', { deviceId: DEVICE }), pageSender(OTHER_ORIGIN))) as Resp;
     expect(other.result).toEqual({ exists: false });
@@ -38,23 +38,56 @@ describe('opérations sans PIN', () => {
 
   test('remove ne demande pas de PIN et n\'ouvre aucune fenêtre', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
     await bg.router.handle(bg.vaultMsg('remove', { deviceId: DEVICE }), pageSender());
     expect(bg.host.opened).toHaveLength(0);
   });
 });
 
 describe('create et load via l\'invite', () => {
-  test('create : la DK revient en base64 (32 octets) et load la restitue après saisie du PIN', async () => {
+  test('create : la DK revient en base64 (32 octets) et load la restitue, sur simple accord (sans PIN)', async () => {
     const bg = makeBackground();
-    const created = await bg.promptFlow('create', PIN);
+    const created = await bg.promptFlow('create');
     expect(created.submit).toEqual({ ok: true });
     const dk = fromB64(created.response.result.dk)!;
     expect(dk).toHaveLength(32);
     expect(bg.host.opened).toHaveLength(1);
 
-    const loaded = await bg.promptFlow('load', PIN);
+    const loaded = await bg.promptFlow('load');
     expect(loaded.response.result.dk).toBe(created.response.result.dk);
+  });
+
+  test('sans PIN : l\'invite l\'annonce, et un PIN envoyé quand même est refusé sans clore l\'invite', async () => {
+    const bg = makeBackground();
+    await bg.vault.create(ORIGIN, DEVICE);
+    const done = bg.router.handle(bg.vaultMsg('load', { deviceId: DEVICE }), pageSender()) as Promise<Resp>;
+    await until(() => bg.host.opened.length === 1);
+    const sid = bg.host.sessionId;
+    const hello = (await bg.router.handle({ kind: 'prompt', type: 'hello', sessionId: sid }, promptSender(sid))) as any;
+    expect(hello.info.needsPin).toBe(false);
+    const withPin = (await bg.router.handle({ kind: 'prompt', type: 'submit', sessionId: sid, pin: PIN }, promptSender(sid))) as any;
+    expect(withPin).toEqual({ ok: false, error: { code: 'bad-request', terminal: false } });
+    const ok = (await bg.router.handle({ kind: 'prompt', type: 'submit', sessionId: sid }, promptSender(sid))) as any;
+    expect(ok).toEqual({ ok: true });
+    expect((await done).ok).toBe(true);
+  });
+
+  test('ancien enregistrement à PIN : le pavé est demandé, un accord sans PIN est refusé, le bon PIN migre', async () => {
+    const bg = makeBackground();
+    const legacyDk = await seedLegacy(bg.storage, bg.secret);
+    const done = bg.router.handle(bg.vaultMsg('load', { deviceId: DEVICE }), pageSender()) as Promise<Resp>;
+    await until(() => bg.host.opened.length === 1);
+    const sid = bg.host.sessionId;
+    const hello = (await bg.router.handle({ kind: 'prompt', type: 'hello', sessionId: sid }, promptSender(sid))) as any;
+    expect(hello.info.needsPin).toBe(true);
+    const noPin = (await bg.router.handle({ kind: 'prompt', type: 'submit', sessionId: sid }, promptSender(sid))) as any;
+    expect(noPin).toEqual({ ok: false, error: { code: 'bad-request', terminal: false } });
+    await bg.router.handle({ kind: 'prompt', type: 'submit', sessionId: sid, pin: PIN }, promptSender(sid));
+    expect(fromB64((await done).result.dk)).toEqual(legacyDk);
+    expect((bg.storage.data.get(recordKey(ORIGIN, DEVICE)) as any).v).toBe(2);
+    // L'ouverture suivante se fait sur simple accord.
+    const again = await bg.promptFlow('load');
+    expect(fromB64(again.response.result.dk)).toEqual(legacyDk);
   });
 
   test('l\'invite affiche l\'origine vue par le worker et une raison nettoyée', async () => {
@@ -72,7 +105,7 @@ describe('create et load via l\'invite', () => {
 
   test('cancel : la page ferme SA propre invite ; la demande en attente reçoit « cancelled » et la fenêtre se ferme', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
     const pending = bg.router.handle(bg.vaultMsg('load', { deviceId: DEVICE }), pageSender()) as Promise<Resp>;
     await until(() => bg.host.opened.length === 1);
 
@@ -88,7 +121,7 @@ describe('create et load via l\'invite', () => {
 
   test('cancel : sans invite ouverte, rien à faire ; une autre origine ou un autre onglet ne peut pas fermer l\'invite d\'un tiers', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
     expect(((await bg.router.handle(bg.vaultMsg('cancel'), pageSender())) as Resp).result).toEqual({ cancelled: false });
 
     const pending = bg.router.handle(bg.vaultMsg('load', { deviceId: DEVICE }), pageSender()) as Promise<Resp>;
@@ -120,7 +153,7 @@ describe('create et load via l\'invite', () => {
 
   test('create sur un appareil déjà enregistré : l\'invite le signale (remplacement)', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
     const done = bg.router.handle(bg.vaultMsg('create', { deviceId: DEVICE }), pageSender());
     await until(() => bg.host.opened.length === 1);
     const hello = (await bg.router.handle({ kind: 'prompt', type: 'hello', sessionId: bg.host.sessionId }, promptSender(bg.host.sessionId))) as any;
@@ -129,9 +162,9 @@ describe('create et load via l\'invite', () => {
     await done;
   });
 
-  test('mauvais PIN : l\'invite reste ouverte pour une nouvelle saisie, la page n\'a pas encore de réponse', async () => {
+  test('ancien enregistrement, mauvais PIN : l\'invite reste ouverte pour une nouvelle saisie, la page n\'a pas encore de réponse', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await seedLegacy(bg.storage, bg.secret);
 
     let settled = false;
     const done = (bg.router.handle(bg.vaultMsg('load', { deviceId: DEVICE }), pageSender()) as Promise<Resp>).then((r) => {
@@ -152,9 +185,9 @@ describe('create et load via l\'invite', () => {
     expect((await done).ok).toBe(true);
   });
 
-  test('10 mauvais PIN dans la même invite : wiped renvoyé à la page, enregistrement effacé', async () => {
+  test('ancien enregistrement, 10 mauvais PIN dans la même invite : wiped renvoyé à la page, enregistrement effacé', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await seedLegacy(bg.storage, bg.secret);
     const done = bg.router.handle(bg.vaultMsg('load', { deviceId: DEVICE }), pageSender()) as Promise<Resp>;
     await until(() => bg.host.opened.length === 1);
     let last: any;
@@ -176,7 +209,7 @@ describe('create et load via l\'invite', () => {
 
   test('origine = celle de sender, jamais celle que le message prétendrait : namespace de l\'expéditeur', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
     // L'expéditeur est la page de développement ; le message prétend venir de la production.
     const forged = { ...bg.vaultMsg('load', { deviceId: DEVICE }), origin: ORIGIN, request: { id: 1, op: 'load', args: { deviceId: DEVICE } } };
     const r = (await bg.router.handle(forged, pageSender(OTHER_ORIGIN))) as Resp;
@@ -195,7 +228,7 @@ describe('create et load via l\'invite', () => {
     const bg = makeBackground();
     const dk = new Uint8Array(32).fill(0xab);
     const fake = new Router({
-      vault: { ...bg.vault, has: async () => false, list: async () => [], remove: async () => {}, load: async () => dk, create: async () => dk } as never,
+      vault: { ...bg.vault, has: async () => false, needsPin: async () => false, list: async () => [], remove: async () => {}, load: async () => dk, create: async () => dk } as never,
       prompts: bg.prompts,
       allowedOrigins: ALLOWED,
       extensionId: EXT_ID,
@@ -205,7 +238,7 @@ describe('create et load via l\'invite', () => {
     });
     const done = fake.handle(bg.vaultMsg('create', { deviceId: DEVICE }), pageSender()) as Promise<Resp>;
     await until(() => bg.host.opened.length === 1);
-    await fake.handle({ kind: 'prompt', type: 'submit', sessionId: bg.host.sessionId, pin: PIN }, promptSender(bg.host.sessionId));
+    await fake.handle({ kind: 'prompt', type: 'submit', sessionId: bg.host.sessionId }, promptSender(bg.host.sessionId));
     const r = await done;
     expect(fromB64(r.result.dk)).toEqual(new Uint8Array(32).fill(0xab));
     expect(dk.every((b) => b === 0)).toBe(true);
@@ -221,7 +254,7 @@ describe('refus avant toute opération', () => {
 
   test.each(unauthorized)('%s : aucune opération, aucune fenêtre, aucun effet', async (_n, origin, over) => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
     const before = JSON.stringify([...bg.storage.data]);
     for (const op of ['status', 'has', 'remove', 'load', 'create']) {
       const r = (await bg.router.handle(bg.vaultMsg(op, op === 'status' ? {} : { deviceId: DEVICE }), pageSender(origin, over))) as Resp;
@@ -264,7 +297,7 @@ describe('refus avant toute opération', () => {
 describe('messages de l\'invite et de la page d\'options', () => {
   test('un content script (page web) ne peut pas parler à l\'invite, même avec le bon sessionId', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
     const done = bg.router.handle(bg.vaultMsg('load', { deviceId: DEVICE }), pageSender()) as Promise<Resp>;
     await until(() => bg.host.opened.length === 1);
     const sid = bg.host.sessionId;
@@ -294,8 +327,8 @@ describe('messages de l\'invite et de la page d\'options', () => {
 
   test('page d\'options : liste, suppression, accès aux sites ; réservée à options.html', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
-    await bg.vault.create(OTHER_ORIGIN, DEVICE_2, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
+    await bg.vault.create(OTHER_ORIGIN, DEVICE_2);
 
     const list = (await bg.router.handle({ kind: 'internal', op: 'list' }, optionsSender())) as any;
     expect(list.result.entries.map((e: any) => e.deviceId).sort()).toEqual([DEVICE, DEVICE_2].sort());
@@ -311,7 +344,7 @@ describe('messages de l\'invite et de la page d\'options', () => {
 
   test('popup de la barre d\'outils : mêmes droits que la page d\'options (liste, accès, suppression)', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
     const list = (await bg.router.handle({ kind: 'internal', op: 'list' }, popupSender())) as any;
     expect(list.result.entries).toHaveLength(1);
     const hosts = (await bg.router.handle({ kind: 'internal', op: 'hostAccess' }, popupSender())) as any;
@@ -328,7 +361,7 @@ describe('messages de l\'invite et de la page d\'options', () => {
     ['autre extension', optionsSender({ id: 'autre' })],
   ])('opérations internes refusées : %s', async (_n, sender) => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
     for (const msg of [
       { kind: 'internal', op: 'list' },
       { kind: 'internal', op: 'hostAccess' },
@@ -342,7 +375,7 @@ describe('messages de l\'invite et de la page d\'options', () => {
 
   test('suppression interne : arguments invalides refusés', async () => {
     const bg = makeBackground();
-    await bg.vault.create(ORIGIN, DEVICE, PIN);
+    await bg.vault.create(ORIGIN, DEVICE);
     for (const bad of [
       { origin: '*', deviceId: DEVICE },
       { origin: ORIGIN, deviceId: 'x' },
@@ -352,6 +385,5 @@ describe('messages de l\'invite et de la page d\'options', () => {
       expect(r.ok).toBe(false);
     }
     expect(await bg.vault.has(ORIGIN, DEVICE)).toBe(true);
-    expect(FAST.iterations).toBeGreaterThan(0);
   });
 });

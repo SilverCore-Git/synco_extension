@@ -157,8 +157,11 @@ export function makeBackground(over: { maxPrompts?: number; hostAccess?: () => P
     request: { id, op, args },
   });
 
-  /** Demande create/load, saisit le PIN dans l'invite, et retourne la réponse finale. */
-  async function promptFlow(op: 'create' | 'load', pin: string, origin = ORIGIN, deviceId = DEVICE) {
+  /**
+   * Demande create/load, répond dans l'invite (accord si `pin` vaut `null`, sinon le PIN d'un ancien enregistrement),
+   * et retourne la réponse finale.
+   */
+  async function promptFlow(op: 'create' | 'load', pin: string | null = null, origin = ORIGIN, deviceId = DEVICE) {
     const before = host.opened.length;
     const done = router.handle(vaultMsg(op, { deviceId }), pageSender(origin)) as Promise<any>;
     await until(() => host.opened.length > before, 'ouverture de l\'invite');

@@ -56,3 +56,8 @@ export function aadPin(origin: string, deviceId: string): Uint8Array<ArrayBuffer
 export function aadDeviceSecret(origin: string, deviceId: string): Uint8Array<ArrayBuffer> {
   return enc.encode(`synco-ext-vault|v1|${origin}|${deviceId}|k2`);
 }
+
+/** Format 2 : DK scellée directement par le second secret. AAD distincte du v1 : les couches ne s'échangent pas. */
+export function aadDeviceSecretV2(origin: string, deviceId: string): Uint8Array<ArrayBuffer> {
+  return enc.encode(`synco-ext-vault|v2|${origin}|${deviceId}|k2`);
+}

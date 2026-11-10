@@ -4,7 +4,7 @@ import { createPromptView } from '../src/ui/prompt/view';
 import { asEl, buttonByText, fakeDoc, type FakeElement } from './helpers/fakeDom';
 
 const base: PromptView = {
-  phase: 'enter', mode: 'load', origin: 'https://app.synco.one', reason: null, replacing: false,
+  phase: 'enter', mode: 'load', origin: 'https://app.synco.one', reason: null, replacing: false, pinEntry: true,
   title: 'Entrez votre code PIN', hint: 'Pour déverrouiller.', error: null, errorSeq: 0, dots: 0, slots: 4,
   keypadEnabled: true, canSubmit: false, submitLabel: 'Déverrouiller', remainingSeconds: 90, lockSeconds: null,
 };
@@ -171,5 +171,26 @@ describe('fenêtre de saisie : affichage', () => {
     expect(cls()).not.toBe(first);
     v.update({ ...base, error: null, errorSeq: 2 });
     expect(cls()).toBe('dots');
+  });
+});
+
+describe('fenêtre d\'accord (sans PIN)', () => {
+  test('bouton « Autoriser » et Annuler ; ni pavé, ni cases, ni mention des 10 erreurs', () => {
+    const { v, root, calls } = make();
+    v.update({ ...base, phase: 'approve', pinEntry: false, title: 'Ouvrir Synco ?', hint: 'Autorisez Synco.', canSubmit: true, submitLabel: 'Autoriser' });
+    const approve = buttonByText(root, 'Autoriser');
+    expect(approve).toBeDefined();
+    approve!.click();
+    expect(calls).toEqual(['submit']);
+    const form = root.findAll((el) => el.getAttribute('class') === 'form')[0]!;
+    expect(form.hidden).toBe(true);
+    expect(all(root)).toContain('Ouvrir Synco ?');
+  });
+
+  test('pendant l\'ouverture : bouton désactivé, libellé « Ouverture… »', () => {
+    const { v, root } = make();
+    v.update({ ...base, phase: 'verifying', pinEntry: false, title: 'Ouvrir Synco ?', hint: '', canSubmit: false, submitLabel: 'Autoriser' });
+    const busy = buttonByText(root, 'Ouverture…');
+    expect(busy?.disabled).toBe(true);
   });
 });

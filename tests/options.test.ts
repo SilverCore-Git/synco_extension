@@ -8,7 +8,7 @@ import { DEVICE, DEVICE_2, ORIGIN, OTHER_ORIGIN } from './helpers/vaultFixtures'
 
 const NOW = 1_800_000_000_000;
 const entry = (over: Partial<VaultEntry> = {}): VaultEntry => ({
-  origin: ORIGIN, deviceId: DEVICE, readable: true, createdAt: NOW - 86_400_000, failures: 0, lockedUntil: null, ...over,
+  origin: ORIGIN, deviceId: DEVICE, readable: true, pin: false, createdAt: NOW - 86_400_000, failures: 0, lockedUntil: null, ...over,
 });
 
 function backend(over: Partial<OptionsBackend> & { entries?: VaultEntry[]; allowed?: string[]; hosts?: { origin: string; granted: boolean }[] } = {}) {
@@ -203,7 +203,7 @@ describe('modules : coffre et actions de page', () => {
     expect(render(ui(), noop, 'popup').findAll((e) => e.getAttribute('aria-label') === 'Ouvrir tous les réglages')).toEqual([]); // pas de bouton orphelin
   });
 
-  test('popup : « Comment ça marche ? » déplie trois points simples et un lien vers le détail', () => {
+  test('popup : « Comment ça marche ? » déplie des points simples et un lien vers le détail', () => {
     let toggled = 0, opened = 0;
     const handlers = { ...noop, toggleHelp: () => { toggled++; }, openFull: () => { opened++; } };
     const closed = render(ui(), handlers, 'popup');
@@ -211,8 +211,8 @@ describe('modules : coffre et actions de page', () => {
     buttonByText(closed, 'Comment ça marche ?').click();
     expect(toggled).toBe(1);
     const open = render(ui({}, null, true), handlers, 'popup');
-    expect(open.textContent).toContain('petite fenêtre de l\'extension, jamais sur le site');
-    expect(open.textContent).toContain('Après 10 erreurs de code');
+    expect(open.textContent).toContain('petite fenêtre de l\'extension vous demande d\'autoriser');
+    expect(open.textContent).not.toContain('code PIN');
     expect(buttonByText(open, 'Masquer')).toBeDefined();
     buttonByText(open, 'Plus de détails').click();
     expect(opened).toBe(1);

@@ -9,7 +9,7 @@ Précisez la version de l'extension, le navigateur, et les étapes pour reprodui
 ## Ce que l'extension protège, en bref
 
 - Le coffre ne répond qu'aux origines de la liste blanche (correspondance exacte, cadre principal uniquement). L'origine est lue sur les informations fournies par le navigateur, jamais sur le contenu d'un message.
-- Le PIN est saisi dans une fenêtre de l'extension, jamais dans la page : un script injecté dans la page Synco (XSS) ne peut ni le lire, ni déverrouiller le coffre sans que l'utilisateur le voie.
+- L'accès à la clé s'autorise dans une fenêtre de l'extension, jamais dans la page : un script injecté dans la page Synco (XSS) ne peut pas déverrouiller le coffre sans que l'utilisateur le voie et l'autorise. Il n'y a plus de PIN : l'extension ne protège ni contre la copie du profil, ni contre une personne devant une session ouverte (voir [doc/16-coffre-extension.md](doc/16-coffre-extension.md), M10 et M12b).
 - Les clés ne sont ni journalisées, ni envoyées à un serveur. Aucune télémétrie.
 
 ## Limites connues (à lire)

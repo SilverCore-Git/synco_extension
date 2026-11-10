@@ -4,10 +4,11 @@ import { AUTO_SUBMIT_MS, PromptController, type PromptBackend, type PromptView }
 
 const ORIGIN = 'https://app.synco.one';
 
-function setup(over: Partial<PromptInfo> = {}, handlers: { submit?: (pin: string) => Promise<SubmitOutcome>; ping?: () => Promise<boolean>; hello?: PromptBackend['hello'] } = {}) {
+function setup(over: Partial<PromptInfo> = {}, handlers: { submit?: (pin: string | null) => Promise<SubmitOutcome>; ping?: () => Promise<boolean>; hello?: PromptBackend['hello'] } = {}) {
   let t = 1_000_000;
-  const info: PromptInfo = { origin: ORIGIN, mode: 'load', reason: null, replacing: false, minPin: 4, maxPin: 8, expiresAt: t + 120_000, ...over };
-  const calls = { submit: [] as string[], ping: 0, cancel: 0, close: 0 };
+  // Par défaut, un ancien enregistrement à PIN (le pavé) ; `needsPin: false` donne le bouton « Autoriser ».
+  const info: PromptInfo = { origin: ORIGIN, mode: 'load', reason: null, replacing: false, needsPin: true, minPin: 4, maxPin: 8, expiresAt: t + 120_000, ...over };
+  const calls = { submit: [] as (string | null)[], ping: 0, cancel: 0, close: 0 };
   const scheduled: { fn: () => void; ms: number }[] = [];
   const backend: PromptBackend = {
     hello: handlers.hello ?? (async () => ({ ok: true, info })),
@@ -287,5 +288,56 @@ describe('annulation, expiration, signe de vie', () => {
     const s = setup({}, { hello: async () => { throw new Error('x'); } });
     await s.c.start();
     expect(s.view.phase).toBe('expired');
+  });
+});
+
+describe('accord sans PIN (cas normal)', () => {
+  test('ouverture : bouton « Autoriser », pas de pavé ; un clic envoie un accord sans PIN, puis la fenêtre se ferme', async () => {
+    const st = setup({ needsPin: false });
+    const { c, calls, scheduled } = st;
+    const get = () => st.view;
+    await c.start();
+    expect(get().phase).toBe('approve');
+    expect(get().pinEntry).toBe(false);
+    expect(get().title).toBe('Ouvrir Synco ?');
+    expect(get().submitLabel).toBe('Autoriser');
+    expect(get().canSubmit).toBe(true);
+    c.press('1'); // le pavé n'existe pas : rien n'est saisi
+    expect(get().dots).toBe(0);
+    await c.submit();
+    expect(calls.submit).toEqual([null]);
+    expect(get().phase).toBe('done');
+    scheduled.at(-1)!.fn();
+    expect(calls.close).toBe(1);
+  });
+
+  test('création : « Protéger cet appareil », un seul clic, aucune double saisie', async () => {
+    const st = setup({ needsPin: false, mode: 'create' });
+    const { c, calls, scheduled } = st;
+    const get = () => st.view;
+    await c.start();
+    expect(get().title).toBe('Protéger cet appareil');
+    await c.submit();
+    expect(calls.submit).toEqual([null]);
+  });
+
+  test('ancien enregistrement : le pavé est affiché et le texte dit que c\'est la dernière fois', async () => {
+    const st = setup();
+    const { c, calls, scheduled } = st;
+    const get = () => st.view;
+    await c.start();
+    expect(get().phase).toBe('enter');
+    expect(get().pinEntry).toBe(true);
+    expect(get().hint).toContain('dernière fois');
+  });
+
+  test('erreur terminale après l\'accord : affichée, rien n\'est relancé', async () => {
+    const st = setup({ needsPin: false }, { submit: async () => ({ ok: false, error: { code: 'unavailable', terminal: true } }) });
+    const { c, calls, scheduled } = st;
+    const get = () => st.view;
+    await c.start();
+    await c.submit();
+    expect(get().phase).toBe('fatal');
+    expect(calls.submit).toHaveLength(1);
   });
 });

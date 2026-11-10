@@ -71,21 +71,21 @@ Utilisation : `const call = await __synco(); await call('status')`.
 
 | # | Étape | Résultat attendu | Chrome | Firefox |
 | --- | --- | --- | :-: | :-: |
-| R10 | `await call('create', {deviceId: DEV, reason: 'Relier cet appareil'})` | Une **fenêtre** s'ouvre : « Choisir un code PIN », `https://localhost:5174` bien visible sous « Demandé par », la raison entre guillemets, pavé numérique | | |
+| R10 | `await call('create', {deviceId: DEV, reason: 'Relier cet appareil'})` | Une **fenêtre** s'ouvre : « Protéger cet appareil », un bouton **Autoriser**, ni pavé ni code ; ni l'origine ni la raison ne sont affichées | | |
 | R11 | Saisir `4821`, Continuer, saisir `4822`, Valider | « Les deux codes ne correspondent pas », retour au choix ; **rien n'est enregistré** (`has` → `exists: false`) | | |
 | R12 | Refaire : `4821` puis `4821` | La fenêtre se ferme ; la page reçoit `ok: true`, `dk: ArrayBuffer(32 octets)` | | |
 | R13 | Popup de l'extension | La clé apparaît (« Appareil 3f2b8c1e… », « Prêt ») | | |
-| R14 | `const a = await call.raw('load', {deviceId: DEV})`, saisir `4821` ; garder `hex(a.result.dk)` ; refaire un `load` | Les deux `dk` sont **identiques** (comparer `hex(...)`) ; chaque `load` redemande le PIN (aucune session) | | |
-| R15 | `load` puis `0000` | « Code PIN incorrect. », la fenêtre **reste ouverte**, saisie vidée | | |
+| R14 | `const a = await call.raw('load', {deviceId: DEV})`, cliquer **Autoriser** ; garder `hex(a.result.dk)` ; refaire un `load` | Les deux `dk` sont **identiques** (comparer `hex(...)`) ; chaque `load` redemande l'accord (aucune session) | | |
+| R15 | Avec un **ancien enregistrement à PIN** (extension précédente) : `load` puis `0000`, puis le bon PIN, puis un nouveau `load` | « Code PIN incorrect. », la fenêtre **reste ouverte** ; le bon PIN rend la clé ; le `load` suivant ne montre plus que **Autoriser** (enregistrement migré) | | |
 | R16 | Enchaîner des erreurs (même fenêtre) | Les 5 premières sans attente ; à la 6ᵉ : pavé bloqué, « Prochain essai possible dans 30 s », compte à rebours ; la 7ᵉ : 2 min | | |
 | R17 | **Effacement après 10 erreurs** (procédure ci-dessous) | `wiped` renvoyé à la page, message « clé effacée » dans la fenêtre ; `has` → `exists: false` ; popup : « Aucune clé » | | |
 | R18 | `create` puis **Annuler** | La page reçoit `code: 'cancelled'` ; fenêtre fermée | | |
 | R19 | `create` puis fermer la fenêtre avec la croix | `code: 'cancelled'` | | |
-| R20 | `create` puis **fermer l'onglet** de la page | La fenêtre de PIN se ferme toute seule | | |
+| R20 | `create` puis **fermer l'onglet** de la page | La fenêtre de l'extension se ferme toute seule | | |
 | R21 | `create` puis laisser la fenêtre ouverte **2 minutes** | Minuterie « Cette demande expire dans … », puis « Demande expirée » ; la page reçoit `cancelled` | | |
 | R22 | Deux `create` coup sur coup (`call('create',…); call('create',…)`) | **Une seule fenêtre** ; l'autre demande reçoit `cancelled` | | |
 | R23 | Quatre invites en moins d'une minute (créer/annuler 4 fois) | La 4ᵉ : `code: 'locked'` avec `retryAfterSeconds`, **sans fenêtre** | | |
-| R24 | `remove` : `await call('remove', {deviceId: DEV})` | `removed: true`, sans PIN, sans fenêtre ; idempotent (rejouer) | | |
+| R24 | `remove` : `await call('remove', {deviceId: DEV})` | `removed: true`, sans fenêtre ; idempotent (rejouer) | | |
 
 **Procédure R17 (effacement sans attendre les délais).** Les délais après la 6ᵉ erreur (30 s, 2 min, 10 min, 1 h)
 rendent l'effacement long. Pour le tester, après chaque erreur à partir de la 6ᵉ, lever le délai depuis la console de
@@ -105,9 +105,9 @@ l'extension (Chrome : « service worker » → Inspecter ; Firefox : « Inspecte
 | --- | --- | --- | :-: | :-: |
 | R25 | **Chrome** : `chrome://serviceworker-internals` → Stop sur le worker de l'extension, puis `await call('status')` | Réponse normale (le worker se réveille, tout est relu depuis `storage.local`) | | ➖ |
 | R26 | Attendre 1 minute sans activité (console de l'extension **fermée**), puis `call('status')` | Réponse normale | | |
-| R27 | `create` : laisser la fenêtre de PIN ouverte **plus de 40 s** sans rien faire, puis saisir le PIN | La saisie aboutit (le signe de vie de la fenêtre garde le worker éveillé) ; sinon : « Demande expirée » (noter) | | |
+| R27 | `create` : laisser la fenêtre ouverte **plus de 40 s** sans rien faire, puis cliquer **Autoriser** | L'accord aboutit (le signe de vie de la fenêtre garde le worker éveillé) ; sinon : « Demande expirée » (noter) | | |
 | R28 | Recharger la page pendant une invite | L'invite reste ouverte jusqu'à son délai ; la clé obtenue ne parvient à personne (noter le comportement) | | |
-| R29 | **Chrome** : fermer et rouvrir le navigateur, puis `load` | Le PIN est redemandé et la même clé revient (le second secret en IndexedDB persiste) | | ➖ |
+| R29 | **Chrome** : fermer et rouvrir le navigateur, puis `load` | L'accord est redemandé et la même clé revient (le second secret en IndexedDB persiste) | | ➖ |
 
 Firefox : un module temporaire est supprimé à la fermeture du navigateur ; R29 se rejoue avec l'extension signée.
 
@@ -126,8 +126,8 @@ Firefox : un module temporaire est supprimé à la fermeture du navigateur ; R29
 
 | # | Étape | Résultat attendu | Chrome | Firefox |
 | --- | --- | --- | :-: | :-: |
-| R37 | Thème clair puis sombre (réglage du système) : fenêtre de PIN, popup, options | Lisible, contrastes corrects, couleur primaire verte | | |
-| R38 | Clavier physique dans la fenêtre de PIN : chiffres, Retour arrière, Entrée, Échap | Comme les boutons ; Échap annule | | |
+| R37 | Thème clair puis sombre (réglage du système) : fenêtre de l'extension, popup, options | Lisible, contrastes corrects, couleur primaire verte | | |
+| R38 | Clavier dans la fenêtre de l'extension : Tab jusqu'à **Autoriser**, Entrée ; Échap ; et, pour un ancien enregistrement, chiffres et Retour arrière | Comme les boutons ; Échap annule | | |
 | R39 | Popup : taille et défilement avec 3 clés ou plus | Contenu entièrement atteignable, pas de coupure | | |
 | R40 | Popup/options : « Supprimer » une clé | Une **fenêtre de confirmation de l'extension** (jamais une boîte du navigateur) ; focus sur « Annuler » ; Échap annule ; « Supprimer » efface | | |
 | R41 | Aucun `alert`, `confirm` ou `prompt` du navigateur n'apparaît nulle part | Conforme | | |
@@ -167,8 +167,8 @@ Firefox : un module temporaire est supprimé à la fermeture du navigateur ; R29
 | R59b | « Comment ça marche ? » dans le popup | Trois phrases simples s'affichent ; « Plus de détails » ouvre la page des réglages ; « Masquer » les referme | | |
 | R60 | Roue dentée du popup | Ouvre la page d'options ; colonne latérale avec les mêmes onglets ; l'adresse change (`#vault`, `#tasks`) | | |
 | R61 | Page d'options réduite à moins de 720 px de large | Onglets en barre horizontale au-dessus du contenu, pas de défilement horizontal | | |
-| R62 | Fenêtre du PIN | De 660 px de haut, tout tient sans défilement : logo, titre, points, pavé rond, boutons, une ligne de limite ; aucun bandeau vide, aucune animation décorative ; erreur visible après un mauvais PIN ; ouverte à droite de la carte de Synco si la page fait 880 px ou plus | | |
-| R63 | Navigation au clavier (Tab) dans le popup, la page d'options et la fenêtre du PIN | Anneau de focus vert visible partout ; la suppression d'une clé ne prend jamais le focus par défaut (« Annuler » d'abord) | | |
+| R62 | Fenêtre de l'extension | De 660 px de haut, tout tient sans défilement : logo, titre, une ligne d'aide, **Autoriser**, Annuler (et, pour un ancien enregistrement, le pavé et la ligne de limite) ; aucun bandeau vide, aucune animation décorative ; ouverte à droite de la carte de Synco si la page fait 880 px ou plus | | |
+| R63 | Navigation au clavier (Tab) dans le popup, la page d'options et la fenêtre de l'extension | Anneau de focus vert visible partout ; la suppression d'une clé ne prend jamais le focus par défaut (« Annuler » d'abord) | | |
 | R64 | Système réglé sur « réduire les animations » | Pas d'animation de chargement ni de transition | | |
 
 ## Ce que cette recette ne couvre pas
@@ -176,5 +176,5 @@ Firefox : un module temporaire est supprimé à la fermeture du navigateur ; R29
 - **Firefox pour Android** : non pris en charge (pas de fenêtres, pas de menu contextuel).
 - **Navigateurs dérivés** (Edge, Brave, Opera…) : non testés.
 - **Résistance au vol de profil** : le second secret n'est pas du matériel (voir SECURITY.md) ; rien à vérifier à la main.
-- **Faille de l'application elle-même** (XSS sur Synco) : l'extension la limite (le PIN n'est jamais saisi dans la page) mais
+- **Faille de l'application elle-même** (XSS sur Synco) : l'extension la limite (l'accès s'autorise dans une fenêtre de l'extension, jamais dans la page) mais
   ne la corrige pas ; elle relève d'une revue de sécurité de l'application.

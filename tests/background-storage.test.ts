@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { MemoryLimiterStore, SlidingWindowLimiter } from '../src/background/rateLimit';
 import { ExtensionVaultStorage, SessionLimiterStore, type StorageAreaLike } from '../src/background/storage';
 import { Vault } from '../src/vault/vault';
-import { DEVICE, FAST, MemorySecret, ORIGIN, PIN } from './helpers/vaultFixtures';
+import { DEVICE, FAST, MemorySecret, ORIGIN, seedLegacy } from './helpers/vaultFixtures';
 
 /** `storage.local` simulé : sérialise en JSON comme le vrai (pas de structuredClone, pas de types riches). */
 class FakeArea implements StorageAreaLike {
@@ -27,18 +27,18 @@ describe('adaptateur storage.local', () => {
     const secret = new MemorySecret(); // le second secret vit dans IndexedDB : il survit au worker
     const make = () => new Vault({ storage: new ExtensionVaultStorage(area), secret, ...FAST });
 
-    const dk = await make().create(ORIGIN, DEVICE, PIN);
+    const dk = await make().create(ORIGIN, DEVICE);
     const afterRestart = make(); // nouvelle instance : aucun état en mémoire
     expect(await afterRestart.has(ORIGIN, DEVICE)).toBe(true);
-    expect(await afterRestart.load(ORIGIN, DEVICE, PIN)).toEqual(dk);
+    expect(await afterRestart.load(ORIGIN, DEVICE)).toEqual(dk);
     expect(await afterRestart.list()).toHaveLength(1);
   });
 
-  test('le compteur d\'échecs survit au redémarrage du worker', async () => {
+  test('ancien enregistrement à PIN : le compteur d\'échecs survit au redémarrage du worker', async () => {
     const area = new FakeArea();
     const secret = new MemorySecret();
     const make = () => new Vault({ storage: new ExtensionVaultStorage(area), secret, ...FAST });
-    await make().create(ORIGIN, DEVICE, PIN);
+    await seedLegacy(new ExtensionVaultStorage(area), secret);
     for (let i = 0; i < 3; i++) await make().load(ORIGIN, DEVICE, '0000').catch(() => undefined);
     const raw = JSON.parse(area.data[`vault:${ORIGIN}:${DEVICE}`]!);
     expect(raw.failures).toBe(3);

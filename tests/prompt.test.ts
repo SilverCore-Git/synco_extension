@@ -25,6 +25,8 @@ function setup(opts: { max?: number; timeoutMs?: number } = {}) {
     mode: 'load',
     reason: null,
     replacing: false,
+    // Par défaut, un ancien enregistrement à PIN : les tests de saisie ci-dessous portent sur ce chemin.
+    needsPin: true,
     attempt: async (pin) => (pin === '1234' ? 'ok' : Promise.reject(new VaultError('wrong-pin'))),
     ...over,
   });
@@ -200,7 +202,28 @@ describe('fermeture, délai, onglet', () => {
   });
 });
 
-describe('saisie du PIN', () => {
+describe('accord sans PIN (cas normal)', () => {
+  test('un accord (null) réussit ; un PIN envoyé à la place est refusé sans clore l\'invite', async () => {
+    const { host, prompts, req } = setup();
+    const p = prompts.run(req({ needsPin: false, attempt: async (pin) => (pin === null ? 'ok' : Promise.reject(new Error('inattendu'))) }));
+    await until(() => host.opened.length === 1);
+    expect(prompts.hello(host.sessionId)?.needsPin).toBe(false);
+    expect(await prompts.submit(host.sessionId, '1234')).toEqual({ ok: false, error: { code: 'bad-request', terminal: false } });
+    expect(await prompts.submit(host.sessionId, null)).toEqual({ ok: true });
+    expect(await p).toBe('ok');
+  });
+
+  test('ancien enregistrement : un accord sans PIN est refusé sans clore l\'invite', async () => {
+    const { host, prompts, req } = setup();
+    const p = prompts.run(req());
+    await until(() => host.opened.length === 1);
+    expect(await prompts.submit(host.sessionId, null)).toEqual({ ok: false, error: { code: 'bad-request', terminal: false } });
+    expect(await prompts.submit(host.sessionId, '1234')).toEqual({ ok: true });
+    await p;
+  });
+});
+
+describe('saisie du PIN (ancien enregistrement)', () => {
   test('mauvais PIN : saisie relancée, même fenêtre ; bon PIN : succès et fenêtre fermée', async () => {
     const { host, prompts, req, timers } = setup();
     const p = prompts.run(req());
