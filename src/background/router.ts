@@ -102,6 +102,9 @@ export class Router {
         if (req.op === 'load' && !exists) throw new VaultError('missing');
         // Seul un ancien enregistrement à PIN demande encore le PIN (une dernière fois, puis il est réécrit sans).
         const needsPin = req.op === 'load' && (await vault.needsPin(origin, deviceId));
+        // Repère montré dans la fenêtre : la date d'enregistrement de la clé, lue dans le coffre (jamais la page).
+        const createdAt =
+          req.op === 'load' ? ((await vault.list({ origin })).find((e) => e.deviceId === deviceId.toLowerCase())?.createdAt ?? null) : null;
 
         const dk = await prompts.run<Uint8Array<ArrayBuffer>>({
           origin,
@@ -110,6 +113,7 @@ export class Router {
           reason: sanitizeReason(req.args.reason),
           replacing: req.op === 'create' && exists,
           needsPin,
+          createdAt,
           attempt: (pin) => (req.op === 'create' ? vault.create(origin, deviceId) : vault.load(origin, deviceId, pin)),
         });
         try {

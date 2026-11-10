@@ -1,14 +1,14 @@
 import { describe, expect, test } from 'bun:test';
-import { APP_CARD_WIDTH, besideApp, centerOver, MIN_PAIR_WIDTH, PAIR_GAP, PROMPT_WINDOW } from '../src/background/placement';
+import { centerOver, PROMPT_WINDOW, PROMPT_WINDOW_PIN } from '../src/background/placement';
 
 const W = { width: 400, height: 700 };
 
-describe('placement de la fenêtre du PIN', () => {
+describe('placement de la fenêtre de l\'extension', () => {
   test('centrée sur la fenêtre du navigateur', () => {
     expect(centerOver({ left: 100, top: 50, width: 1400, height: 900 }, W)).toEqual({ left: 600, top: 150 });
   });
 
-  test('taille par défaut : celle de la fenêtre du PIN', () => {
+  test('taille par défaut : celle de la fenêtre d\'accord', () => {
     expect(centerOver({ left: 0, top: 0, width: 1000, height: 800 })).toEqual({ left: (1000 - PROMPT_WINDOW.width) / 2, top: (800 - PROMPT_WINDOW.height) / 2 });
   });
 
@@ -34,51 +34,9 @@ describe('placement de la fenêtre du PIN', () => {
   });
 });
 
-describe('placement côte à côte avec la carte de Synco', () => {
-  const W = { width: 420, height: 660 };
-  const parent = { left: 100, top: 50, width: 1400, height: 900 };
-
-  test('à droite de la carte : la paire (carte + écart + fenêtre) est centrée sur le navigateur', () => {
-    const pos = besideApp(parent, undefined, W)!;
-    const pairWidth = APP_CARD_WIDTH + PAIR_GAP + W.width;
-    const pairLeft = parent.left + (parent.width - pairWidth) / 2;
-    expect(pos.left).toBe(Math.round(pairLeft + APP_CARD_WIDTH + PAIR_GAP)); // juste après la carte
-    expect(pos.left).toBeGreaterThan(parent.left + parent.width / 2 - W.width); // bien à droite du centre
-  });
-
-  test('verticalement : centrée sur la page visible (sous la barre d\'outils), pas sur le cadre du navigateur', () => {
-    const framed = besideApp(parent, undefined, W)!;
-    expect(framed.top).toBe(50 + 450 - 330); // sans zone visible connue : centre du cadre
-    const viewport = besideApp(parent, { width: 1400, height: 800 }, W)!;
-    expect(viewport.top).toBe(50 + 100 + 400 - 330); // 100 px de barre d'outils au-dessus de la page
-    expect(viewport.top).toBeGreaterThan(framed.top);
-  });
-
-  test('zone visible absurde (plus haute que le cadre, nulle) : ignorée', () => {
-    const base = besideApp(parent, undefined, W)!;
-    for (const vp of [{ height: 5000 }, { height: 0 }, { height: NaN }, {}]) expect(besideApp(parent, vp, W)).toEqual(base);
-  });
-
-  test('navigateur trop étroit pour la paire : null (l\'appelant se replie sur le centrage)', () => {
-    expect(besideApp({ ...parent, width: MIN_PAIR_WIDTH - 1 }, undefined, W)).toBeNull();
-    expect(besideApp({ ...parent, width: MIN_PAIR_WIDTH }, undefined, W)).not.toBeNull();
-  });
-
-  test.each([
-    ['absente', undefined],
-    ['minimisée', { ...parent, state: 'minimized' }],
-    ['plein écran', { ...parent, state: 'fullscreen' }],
-    ['sans coordonnées', { width: 1400, height: 900 }],
-  ])('fenêtre %s : null', (_n, p) => {
-    expect(besideApp(p, undefined, W)).toBeNull();
-  });
-
-  test('second écran à gauche : la paire suit le navigateur', () => {
-    const pos = besideApp({ left: -1920, top: 0, width: 1920, height: 1080 }, undefined, W)!;
-    expect(pos.left).toBeLessThan(0);
-  });
-
-  test('la fenêtre du PIN : 420 × 660 px (le pavé s\'étire jusqu\'à la hauteur disponible)', () => {
-    expect(PROMPT_WINDOW).toEqual({ width: 420, height: 660 });
+describe('taille de la fenêtre', () => {
+  test('accord (cas normal) : compacte ; ancien enregistrement à PIN : assez haute pour le pavé', () => {
+    expect(PROMPT_WINDOW).toEqual({ width: 400, height: 440 });
+    expect(PROMPT_WINDOW_PIN).toEqual({ width: 420, height: 660 });
   });
 });

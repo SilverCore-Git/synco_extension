@@ -27,6 +27,11 @@ export function formatDate(timestampMs: number, locale = 'fr-FR'): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' }).format(new Date(timestampMs));
 }
 
+/** Le jour seul (« 10 novembre 2026 ») : assez pour reconnaître une clé, sans le bruit de l'heure. */
+export function formatDay(timestampMs: number, locale = 'fr-FR'): string {
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' }).format(new Date(timestampMs));
+}
+
 /** Début d'un identifiant d'appareil : suffisant pour s'y retrouver, sans afficher l'identifiant entier. */
 export function shortId(uuid: string): string {
   return `${uuid.slice(0, 8)}…`;

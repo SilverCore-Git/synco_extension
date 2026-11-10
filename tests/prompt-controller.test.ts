@@ -7,7 +7,7 @@ const ORIGIN = 'https://app.synco.one';
 function setup(over: Partial<PromptInfo> = {}, handlers: { submit?: (pin: string | null) => Promise<SubmitOutcome>; ping?: () => Promise<boolean>; hello?: PromptBackend['hello'] } = {}) {
   let t = 1_000_000;
   // Par défaut, un ancien enregistrement à PIN (le pavé) ; `needsPin: false` donne le bouton « Autoriser ».
-  const info: PromptInfo = { origin: ORIGIN, mode: 'load', reason: null, replacing: false, needsPin: true, minPin: 4, maxPin: 8, expiresAt: t + 120_000, ...over };
+  const info: PromptInfo = { origin: ORIGIN, mode: 'load', reason: null, replacing: false, createdAt: null, needsPin: true, minPin: 4, maxPin: 8, expiresAt: t + 120_000, ...over };
   const calls = { submit: [] as (string | null)[], ping: 0, cancel: 0, close: 0 };
   const scheduled: { fn: () => void; ms: number }[] = [];
   const backend: PromptBackend = {
@@ -309,6 +309,21 @@ describe('accord sans PIN (cas normal)', () => {
     expect(get().phase).toBe('done');
     scheduled.at(-1)!.fn();
     expect(calls.close).toBe(1);
+  });
+
+  test('repère : la date de la clé au déverrouillage ; « nouvelle clé » à la création ; rien en remplacement', async () => {
+    const a = setup({ needsPin: false, createdAt: Date.UTC(2026, 10, 10, 12) });
+    await a.c.start();
+    expect(a.view.detail).toEqual({ label: 'Clé de cet appareil', value: 'Enregistrée le 10 novembre 2026' });
+    const b = setup({ needsPin: false, mode: 'create' });
+    await b.c.start();
+    expect(b.view.detail?.label).toBe('Nouvelle clé pour cet appareil');
+    const c = setup({ needsPin: false, mode: 'create', replacing: true });
+    await c.c.start();
+    expect(c.view.detail).toBeNull();
+    const d = setup(); // ancien enregistrement : le pavé, pas de repère
+    await d.c.start();
+    expect(d.view.detail).toBeNull();
   });
 
   test('création : « Protéger cet appareil », un seul clic, aucune double saisie', async () => {

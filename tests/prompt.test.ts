@@ -25,6 +25,7 @@ function setup(opts: { max?: number; timeoutMs?: number } = {}) {
     mode: 'load',
     reason: null,
     replacing: false,
+    createdAt: null,
     // Par défaut, un ancien enregistrement à PIN : les tests de saisie ci-dessous portent sur ce chemin.
     needsPin: true,
     attempt: async (pin) => (pin === '1234' ? 'ok' : Promise.reject(new VaultError('wrong-pin'))),

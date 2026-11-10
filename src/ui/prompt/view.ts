@@ -63,8 +63,12 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
   const status = createStatus(doc);
   const title = h(doc, 'h1', { attrs: { id: 'title' } });
   const hint = h(doc, 'p', { class: 'hint' });
+  // Repère pour reconnaître ce qu'on autorise. Vient du coffre (worker), jamais de la page.
+  const factLabel = h(doc, 'span', { class: 'fact-label' });
+  const factValue = h(doc, 'span', { class: 'fact-value' });
+  const fact = h(doc, 'div', { class: 'fact' }, icon(doc, 'key-fill'), h(doc, 'div', { class: 'fact-text' }, factLabel, factValue));
 
-  const replacing = banner(doc, 'warn', 'Un enregistrement existe déjà pour cet appareil : il sera remplacé.');
+  const replacing = banner(doc, 'warn', 'Cet appareil a déjà une clé : elle sera remplacée.');
 
   const dots = h(doc, 'div', { class: 'dots', attrs: { role: 'img' } });
   // L'erreur prend la place d'une ligne réservée sous les points : rien ne saute quand elle apparaît.
@@ -111,7 +115,7 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     'main',
     { class: 'prompt', attrs: { 'aria-live': 'polite' } },
     head,
-    h(doc, 'div', { class: 'heading' }, status.root, title, hint),
+    h(doc, 'div', { class: 'heading' }, status.root, title, hint, fact),
     replacing,
     form,
     approve,
@@ -125,6 +129,10 @@ export function createPromptView(doc: Document, handlers: PromptHandlers): { roo
     const showApprove = active && !view.pinEntry;
     status.set(sceneState(view.phase));
     root.setAttribute('data-phase', view.phase);
+    root.setAttribute('data-mode', view.pinEntry ? 'pin' : 'approve');
+    fact.hidden = view.detail === null;
+    factLabel.textContent = view.detail?.label ?? '';
+    factValue.textContent = view.detail?.value ?? '';
     title.textContent = view.title;
     hint.textContent = view.phase === 'fatal' || view.phase === 'expired' ? (view.error ?? view.hint) : view.hint;
     hint.hidden = hint.textContent === '';

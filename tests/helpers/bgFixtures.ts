@@ -69,7 +69,7 @@ export class FakeTimers implements Timers {
 }
 
 export class FakeHost implements PromptHost {
-  opened: { windowId: number; sessionId: string }[] = [];
+  opened: { windowId: number; sessionId: string; size?: { width: number; height: number } }[] = [];
   closed: number[] = [];
   openDelay: Promise<void> | null = null;
   failOpen = false;
@@ -77,11 +77,11 @@ export class FakeHost implements PromptHost {
   private winCbs: ((id: number) => void)[] = [];
   private tabCbs: ((id: number) => void)[] = [];
 
-  async openWindow(sessionId: string) {
+  async openWindow(sessionId: string, _tabId?: number, size?: { width: number; height: number }) {
     if (this.failOpen) throw new Error('refusé');
     if (this.openDelay) await this.openDelay;
     const windowId = this.nextId++;
-    this.opened.push({ windowId, sessionId });
+    this.opened.push({ windowId, sessionId, ...(size ? { size } : {}) });
     return windowId;
   }
   async closeWindow(windowId: number) {

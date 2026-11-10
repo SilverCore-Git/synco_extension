@@ -65,6 +65,9 @@ describe('create et load via l\'invite', () => {
     const sid = bg.host.sessionId;
     const hello = (await bg.router.handle({ kind: 'prompt', type: 'hello', sessionId: sid }, promptSender(sid))) as any;
     expect(hello.info.needsPin).toBe(false);
+    // Fenêtre compacte, et la date de la clé lue dans le coffre (jamais un texte de la page).
+    expect(bg.host.opened[0]!.size).toEqual({ width: 400, height: 440 });
+    expect(hello.info.createdAt).toBe((await bg.vault.list({ origin: ORIGIN }))[0]!.createdAt);
     const withPin = (await bg.router.handle({ kind: 'prompt', type: 'submit', sessionId: sid, pin: PIN }, promptSender(sid))) as any;
     expect(withPin).toEqual({ ok: false, error: { code: 'bad-request', terminal: false } });
     const ok = (await bg.router.handle({ kind: 'prompt', type: 'submit', sessionId: sid }, promptSender(sid))) as any;
@@ -80,6 +83,7 @@ describe('create et load via l\'invite', () => {
     const sid = bg.host.sessionId;
     const hello = (await bg.router.handle({ kind: 'prompt', type: 'hello', sessionId: sid }, promptSender(sid))) as any;
     expect(hello.info.needsPin).toBe(true);
+    expect(bg.host.opened[0]!.size).toEqual({ width: 420, height: 660 }); // assez haute pour le pavé
     const noPin = (await bg.router.handle({ kind: 'prompt', type: 'submit', sessionId: sid }, promptSender(sid))) as any;
     expect(noPin).toEqual({ ok: false, error: { code: 'bad-request', terminal: false } });
     await bg.router.handle({ kind: 'prompt', type: 'submit', sessionId: sid, pin: PIN }, promptSender(sid));

@@ -4,7 +4,7 @@ import { createPromptView } from '../src/ui/prompt/view';
 import { asEl, buttonByText, fakeDoc, type FakeElement } from './helpers/fakeDom';
 
 const base: PromptView = {
-  phase: 'enter', mode: 'load', origin: 'https://app.synco.one', reason: null, replacing: false, pinEntry: true,
+  phase: 'enter', mode: 'load', origin: 'https://app.synco.one', reason: null, replacing: false, pinEntry: true, detail: null,
   title: 'Entrez votre code PIN', hint: 'Pour déverrouiller.', error: null, errorSeq: 0, dots: 0, slots: 4,
   keypadEnabled: true, canSubmit: false, submitLabel: 'Déverrouiller', remainingSeconds: 90, lockSeconds: null,
 };
@@ -110,7 +110,7 @@ describe('fenêtre de saisie : affichage', () => {
 
   test('remplacement : l\'avertissement n\'apparaît que pour une création sur un appareil déjà enregistré', () => {
     const { v, root } = make();
-    const banner = () => root.findAll((e) => e.textContent.startsWith('Un enregistrement existe déjà'))[0]!;
+    const banner = () => root.findAll((e) => e.textContent.startsWith('Cet appareil a déjà une clé'))[0]!;
     v.update({ ...base, mode: 'create', replacing: true });
     expect(banner().hidden).toBe(false);
     v.update({ ...base, mode: 'load', replacing: true });

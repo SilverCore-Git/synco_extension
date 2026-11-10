@@ -1,5 +1,5 @@
 import type { PromptInfo, SubmitOutcome } from '../../background/prompt';
-import { describeError } from '../format';
+import { describeError, formatDay } from '../format';
 
 /** `approve` : le cas normal, un bouton « Autoriser ». `enter`/`confirm` : le pavé, pour un ancien enregistrement à PIN. */
 export type Phase = 'loading' | 'approve' | 'enter' | 'confirm' | 'verifying' | 'fatal' | 'done' | 'expired';
@@ -21,6 +21,8 @@ export interface PromptView {
   replacing: boolean;
   /** Le pavé est affiché (ancien enregistrement à PIN) ; sinon, le bouton « Autoriser ». */
   pinEntry: boolean;
+  /** Un repère pour reconnaître ce qu'on autorise (date de la clé, lue dans le coffre) ; jamais un texte de la page. */
+  detail: { label: string; value: string } | null;
   title: string;
   hint: string;
   error: string | null;
@@ -246,6 +248,7 @@ export class PromptController {
       reason: info?.reason ?? null,
       replacing: info?.replacing ?? false,
       pinEntry: info?.needsPin ?? false,
+      detail: this.detail(),
       title: this.title(),
       hint: this.hint(),
       error: this.error,
@@ -314,13 +317,22 @@ export class PromptController {
     if (this.phase === 'verifying') return '';
     if (info && this.phase === 'approve') {
       return info.mode === 'create'
-        ? 'L\'extension gardera la clé de vos messages pour cet appareil.'
-        : 'Autorisez Synco à ouvrir vos messages sur cet appareil.';
+        ? 'Synco Extension gardera la clé de vos messages, hors de la page.'
+        : 'Synco demande à ouvrir vos messages sur cet appareil.';
     }
     if (!info || (this.phase !== 'enter' && this.phase !== 'confirm')) return '';
     if (info.mode === 'load') return 'Une dernière fois : il ne sera plus demandé ensuite.';
     if (this.phase === 'confirm') return 'Saisissez le même code une seconde fois.';
     return `${PIN_LENGTH} chiffres, pour protéger la clé de cet appareil.`;
+  }
+
+  private detail(): { label: string; value: string } | null {
+    const info = this.info;
+    if (!info || info.needsPin || (this.phase !== 'approve' && this.phase !== 'verifying')) return null;
+    if (info.mode === 'create') {
+      return info.replacing ? null : { label: 'Nouvelle clé pour cet appareil', value: 'Elle ne quitte jamais cet ordinateur' };
+    }
+    return info.createdAt !== null ? { label: 'Clé de cet appareil', value: `Enregistrée le ${formatDay(info.createdAt)}` } : null;
   }
 
   private notify(): void {

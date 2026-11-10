@@ -1,12 +1,13 @@
 import { MAX_PIN_LENGTH, MIN_PIN_LENGTH } from '../vault/constants';
+import { PROMPT_WINDOW, PROMPT_WINDOW_PIN } from './placement';
 import { VaultError } from '../vault/errors';
 import type { ErrorBody } from '../shared/protocol';
 import type { SlidingWindowLimiter } from './rateLimit';
 
 /** Ce dont le gestionnaire d'invite a besoin du navigateur (adaptateur réel dans index.ts, simulé en test). */
 export interface PromptHost {
-  /** `tabId` : l'onglet de la page qui a fait la demande, pour placer la fenêtre à côté de sa carte. */
-  openWindow(sessionId: string, tabId: number): Promise<number>;
+  /** `tabId` : l'onglet de la page qui a fait la demande. `size` : compacte pour un accord, plus haute pour le pavé. */
+  openWindow(sessionId: string, tabId: number, size: { width: number; height: number }): Promise<number>;
   closeWindow(windowId: number): Promise<void>;
   onWindowRemoved(cb: (windowId: number) => void): void;
   onTabRemoved(cb: (tabId: number) => void): void;
@@ -33,6 +34,8 @@ export interface PromptRequest<T> {
   reason: string | null;
   /** Un enregistrement existe déjà et sera remplacé (create). */
   replacing: boolean;
+  /** Date d'enregistrement de la clé de cet appareil (load), lue dans le coffre : jamais une donnée de la page. */
+  createdAt: number | null;
   /**
    * Ancien enregistrement scellé par un PIN : la fenêtre affiche le pavé. Sinon (cas normal), un bouton « Autoriser ».
    */
@@ -49,6 +52,7 @@ export interface PromptInfo {
   mode: 'create' | 'load';
   reason: string | null;
   replacing: boolean;
+  createdAt: number | null;
   needsPin: boolean;
   minPin: number;
   maxPin: number;
@@ -144,7 +148,7 @@ export class PromptManager {
 
     const session = this.session!;
     // Ouverture en parallèle : l'appelant n'attend pas la fenêtre pour être averti d'une annulation ou d'une erreur.
-    this.deps.host.openWindow(id, req.tabId).then(
+    this.deps.host.openWindow(id, req.tabId, req.needsPin ? PROMPT_WINDOW_PIN : PROMPT_WINDOW).then(
       (windowId) => {
         session.windowId = windowId;
         if (session.settled) void this.deps.host.closeWindow(windowId).catch(() => undefined); // annulée pendant l'ouverture
@@ -163,6 +167,7 @@ export class PromptManager {
       mode: s.req.mode,
       reason: s.req.reason,
       replacing: s.req.replacing,
+      createdAt: s.req.createdAt,
       needsPin: s.req.needsPin,
       minPin: MIN_PIN_LENGTH,
       maxPin: MAX_PIN_LENGTH,

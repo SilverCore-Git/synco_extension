@@ -135,11 +135,14 @@ et part dès le 4e chiffre. Le bon PIN rend DK et l'enregistrement est réécrit
 demandé. Le worker refuse une réponse qui ne correspond pas au cas (un PIN pour un enregistrement sans PIN, un accord
 nu pour un ancien enregistrement) sans clore l'invite.
 
-**Placement.** La fenêtre (420 × 660 px) s'ouvre à droite de la carte que l'application affiche pendant la demande, au même
-niveau : la paire est centrée sur la page (disposition convenue avec l'application, qui décale sa carte d'autant). Le
-centre vertical est celui de la zone visible de l'onglet. Sur une page de moins de 880 px de large, ou sans coordonnées
-fiables (fenêtre minimisée, plein écran), elle se centre sur le navigateur ou laisse le navigateur choisir. Certains
-gestionnaires de fenêtres (Wayland) ignorent la position demandée.
+**Taille et placement.** La fenêtre fait 400 × 440 px pour un accord, 420 × 660 px quand le pavé d'un ancien
+enregistrement est nécessaire. Elle se centre sur la fenêtre du navigateur, comme une boîte de dialogue ; sans
+coordonnées fiables (fenêtre minimisée, plein écran), le navigateur choisit. Certains gestionnaires de fenêtres
+(Wayland) ignorent la position demandée : l'application n'en dépend pas, sa carte d'attente est ancrée en bas de la page.
+
+**Repère affiché.** Au déverrouillage, la fenêtre montre la date d'enregistrement de la clé de cet appareil, lue dans le
+coffre par le worker : l'utilisateur reconnaît ce qu'il autorise, sans qu'aucun texte de la page n'entre dans la
+fenêtre.
 
 **Rien de ce que la page fournit n'est affiché**, ni l'origine ni la raison. L'origine n'informe pas l'utilisateur : elle
 est forcément l'une des adresses exactes de la liste blanche (une seule en production), et la menace M2 ne change pas
