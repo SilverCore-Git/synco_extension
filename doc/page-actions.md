@@ -5,10 +5,17 @@ il ne peut ni importer, ni lire, ni écrire quoi que ce soit du coffre (voir « 
 
 ## État de la phase actuelle
 
-**Masqué** depuis le 11 novembre 2026 : le worker n'enregistre aucune action (`registerPageActions(pageHost, [])`, ce
-qui efface aussi le menu des versions précédentes) et le module « Tâches » est retiré du registre de l'interface
-(`src/ui/registry.ts`). Le code, le contrat et les tests restent : pour rétablir, rendre `createTaskAction` au worker
-et `tasksModule` au registre.
+**Masqué** depuis le 11 novembre 2026, en attendant que l'envoi à Synco soit branché : le worker n'enregistre plus
+le menu, le module « Tâches » est retiré du registre de l'interface (`src/ui/registry.ts`), et les permissions
+`contextMenus`, `activeTab` et `optional_host_permissions: ["<all_urls>"]` sont retirées du manifeste (les stores
+refusent une permission demandée mais inutilisée). Le code, le contrat et les tests restent. Pour rétablir :
+
+1. remettre ces trois permissions dans `manifests/base.json` (et dans `tests/manifests.test.ts`) ;
+2. dans `src/background/index.ts`, recréer l'hôte `PageActionsHost` (menus via `api.contextMenus`, pastille via
+   `api.action`) et appeler `registerPageActions(host, [createTaskAction({ store: new DraftStore(api.storage.session), host })])`
+   (version complète : commit `9ac549c`) ;
+3. remettre `tasksModule` dans `src/ui/registry.ts` ;
+4. déclarer les nouvelles permissions aux stores, avec leur justification.
 
 Squelette : **aucun appel réseau, aucun jeton, aucun envoi.** Le menu contextuel « Créer une tâche dans Synco »
 construit un brouillon local, validé, que le popup de l'extension affiche (« Brouillon de tâche en attente »).

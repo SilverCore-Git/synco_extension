@@ -2,7 +2,6 @@
 // Tous les écouteurs sont enregistrés de façon synchrone au chargement : un worker rendormi est réveillé par
 // l'événement, et rien du coffre ne vit en mémoire entre deux messages (tout est relu depuis storage.local).
 import { api } from '../shared/api';
-import { registerPageActions, type PageActionsHost } from '../page-actions/actions';
 import { BUILT_IN_ORIGINS } from '../shared/origins';
 import { errorResponse, PROMPT_PAGE } from '../shared/protocol';
 import { IdbDeviceSecret } from '../vault/idbSecret';
@@ -72,32 +71,9 @@ api.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   return true;
 });
 
-// Actions de page (tous sites) : menu contextuel « Créer une tâche dans Synco ». Aucun lien avec le coffre :
-// le module n'importe rien de vault/ et n'écrit que dans storage.session (clé page-actions:draft).
-const pageHost: PageActionsHost = {
-  createMenu: (item) =>
-    new Promise<void>((resolve) => {
-      api.contextMenus.create(
-        { id: item.id, title: item.title, contexts: item.contexts as [chrome.contextMenus.ContextType, ...chrome.contextMenus.ContextType[]], documentUrlPatterns: item.documentUrlPatterns },
-        () => {
-          void api.runtime.lastError; // lu pour ne pas laisser d'erreur « non vérifiée »
-          resolve();
-        },
-      );
-    }),
-  removeAllMenus: () => api.contextMenus.removeAll(),
-  onInstalled: (cb) => api.runtime.onInstalled.addListener(() => cb()),
-  onMenuClicked: (cb) => api.contextMenus.onClicked.addListener((info, tab) => cb(info, tab)),
-  async setBadge(text) {
-    await api.action.setBadgeText({ text });
-    if (text) await api.action.setBadgeBackgroundColor({ color: '#16ac77' });
-  },
-};
-// Masqué tant que l'envoi à Synco n'est pas branché : aucune action, donc aucun menu (removeAll à l'installation et à
-// chaque mise à jour efface aussi celui des versions précédentes). Pour le rétablir (imports createTaskAction depuis
-// ../page-actions/actions et DraftStore, SessionArea depuis ../page-actions/store) :
-// registerPageActions(pageHost, [createTaskAction({ store: new DraftStore(api.storage.session as SessionArea), host: pageHost })]);
-registerPageActions(pageHost, []);
+// Actions de page (menu contextuel « Créer une tâche dans Synco ») : masquées tant que l'envoi à Synco n'est pas
+// branché, et leurs permissions (contextMenus, activeTab, <all_urls> facultatif) retirées du manifeste : les stores
+// refusent une permission demandée mais inutilisée. Pour les rétablir, voir doc/page-actions.md.
 
 // Retour vers l'onglet Synco après l'installation ou l'octroi de l'accès au site (onboarding.ts).
 const onboardingHost: OnboardingHost = {

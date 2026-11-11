@@ -79,7 +79,7 @@ describe.each(combos)('manifeste %s (%s)', (targetName, mode) => {
     expect(m.host_permissions).toEqual([...new Set(originsFor(config, mode).map((o: string) => expectedPattern(o, targetName)))]);
     expect(m.host_permissions).not.toContain('<all_urls>');
     // L'accès à tous les sites n'existe qu'en optionnel (demandé sur geste, jamais à l'installation) et une seule fois.
-    expect(m.optional_host_permissions).toEqual(['<all_urls>']);
+    expect(m.optional_host_permissions).toBeUndefined(); // l'accès à tous les sites (actions de page) est masqué
     expect(JSON.stringify({ ...m, optional_host_permissions: undefined }).match(/<all_urls>|\*:\/\/\*|https?:\/\/\*\//g)).toBeNull();
     for (const p of m.permissions as string[]) expect(p).not.toMatch(/\*|:\/\//);
     expect(m.externally_connectable).toBeUndefined();
@@ -88,8 +88,10 @@ describe.each(combos)('manifeste %s (%s)', (targetName, mode) => {
     expect(m.permissions).not.toContain('scripting'); // inutile : le texte vient du menu contextuel
   });
 
-  test('actions de page : permissions minimales (menu contextuel, onglet actif au clic, stockage de session)', () => {
-    expect([...m.permissions].sort()).toEqual(['activeTab', 'contextMenus', 'storage']);
+  test('permissions minimales : le stockage seul (les actions de page, masquées, ne demandent plus rien)', () => {
+    expect([...m.permissions].sort()).toEqual(['storage']);
+    expect(m.description).not.toMatch(/actions de page/i);
+    expect(m.description.length).toBeLessThanOrEqual(132); // limite du Chrome Web Store
     expect(m.content_scripts).toHaveLength(1); // aucun autre content script : celui du coffre, limité aux origines Synco
   });
 

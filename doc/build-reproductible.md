@@ -25,7 +25,7 @@ Le résultat est déterministe : pas d'horodatage, pas de minification, versions
 doivent être **identiques octet pour octet** à ceux du module soumis. Les empreintes de chaque fichier figurent dans
 `dist/SHA256SUMS.txt` (lignes `<sha256>  chrome/…` et `<sha256>  firefox/…`).
 
-> Vérifié : une reconstruction dans un dossier vide à partir de l'archive source seule donne, pour les 14 fichiers de
+> Vérifié : une reconstruction dans un dossier vide à partir de l'archive source seule donne, pour chaque fichier de
 > chaque paquet, les mêmes empreintes que le paquet publié.
 
 **Les empreintes des archives `.zip` ne sont pas la référence** : la compression peut varier d'une version de zlib à
@@ -76,8 +76,20 @@ aucune origine locale ; aucun diagnostic de développement ; aucun `console.*` ;
 
 Rien de ceci n'est dans le dépôt public (aucun identifiant, aucune clé) :
 
-- Chrome Web Store : création de l'élément, déclaration des permissions (`storage`, `contextMenus`, `activeTab`,
-  accès à `https://app.synco.one`), justification de chacune, politique de confidentialité.
-- AMO : identifiant `synco-extension@synco.one` (définitif après la première publication), déclaration « aucune donnée
-  collectée » (`data_collection_permissions`), et **retirer la compatibilité Firefox pour Android** : l'extension ne
-  fonctionne pas sur Android (pas de fenêtres `windows.create`, pas de menu contextuel).
+- **Chrome Web Store** (le même `…-chrome.zip` sert aussi pour **Microsoft Edge Add-ons**) : création de l'élément,
+  objectif unique, justification de chaque permission, pratiques de confidentialité, politique de confidentialité.
+  Textes à reprendre :
+  - *Objectif unique* : « Garder hors de la page web la clé de chiffrement de bout en bout que Synco crée pour cet
+    appareil, et ne la remettre à Synco qu'après l'accord de l'utilisateur dans une fenêtre de l'extension. »
+  - *`storage`* : « Enregistre localement la clé chiffrée de l'appareil et ses métadonnées (date, essais). Rien
+    n'est envoyé hors du navigateur. »
+  - *Accès à `https://app.synco.one/*`* : « Seul site auquel l'extension répond : son script de page relaie les
+    demandes de Synco vers l'extension. Aucun autre site n'est lu ni modifié. »
+  - *Code distant* : « Non. Tout le code est dans le paquet. »
+  - *Données* : aucune donnée collectée ni transmise ; cocher les trois engagements (pas de vente, pas d'usage
+    sans rapport, pas d'évaluation de solvabilité). La clé reste sur l'appareil.
+- **AMO** : identifiant `synco-extension@synco.one` (définitif après la première publication), déclaration « aucune
+  donnée collectée » (déjà dans le manifeste : `data_collection_permissions`), archive source et notes pour les
+  relecteurs (ci-dessus), et **retirer la compatibilité Firefox pour Android** : l'extension n'y fonctionne pas (pas
+  de fenêtres `windows.create` pour l'accord). `gecko_android` ne figure dans le manifeste que pour la version minimale
+  de `data_collection_permissions` exigée par la lint.

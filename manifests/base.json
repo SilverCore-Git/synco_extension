@@ -1,12 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Synco Extension",
-  "description": "Coffre de clés local pour Synco (uniquement sur les origines Synco) et actions de page.",
+  "description": "Coffre de clés pour Synco : la clé de chiffrement de cet appareil reste dans l'extension, utilisée seulement avec votre accord.",
   "version": "0.0.0",
   "permissions": [
-    "storage",
-    "contextMenus",
-    "activeTab"
+    "storage"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'"
@@ -40,8 +38,5 @@
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true
-  },
-  "optional_host_permissions": [
-    "<all_urls>"
-  ]
+  }
 }
