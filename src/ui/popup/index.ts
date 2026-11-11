@@ -21,6 +21,12 @@ const handlers: UiHandlers = {
     void api.runtime.openOptionsPage();
     window.close();
   },
+  openSynco: () => {
+    const origin = model.current.hosts.find((x) => x.granted)?.origin;
+    if (!origin) return;
+    void api.tabs.create({ url: `${origin}/` });
+    window.close();
+  },
 };
 
 const app = runApp({ root: document.getElementById('app')!, surface: 'popup', model, handlers, initialActive: null });

@@ -42,7 +42,8 @@ src/ui/
   popup/ options/ prompt/   pages d'entrée (popup et options : mêmes modules ; prompt : fenêtre du PIN)
 ```
 
-Le **popup** est pensé pour quelqu'un qui n'est pas technicien : un seul état lisible (icône, titre, une phrase), au plus
+Le **popup** est pensé pour quelqu'un qui n'est pas technicien : un seul état lisible (grand titre, une phrase, et le schéma
+« Synco ↔ clé de cet appareil » dont le lien dit l'état : « Sur votre accord », « Pas encore autorisé »…), au plus
 une action, et « Comment ça marche ? » pour qui veut savoir. Pas d'identifiants, d'adresses ni de jargon ; le détail
 (clés, suppression, accès élargi) est dans la page d'options. Un module qui n'a rien d'utile à dire dans le popup
 renvoie `null` : il n'y a alors pas d'onglet (c'est le cas de « Tâches » tant qu'il n'y a pas de brouillon).

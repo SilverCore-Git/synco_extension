@@ -226,6 +226,16 @@ describe('modules : coffre et actions de page', () => {
     expect(granted).toBe(1);
   });
 
+  test('popup : aucune clé : « Ouvrir Synco » relié au gestionnaire, absent sans gestionnaire', () => {
+    let opened = 0;
+    const root = render(ui({ groups: [] }), { ...noop, openSynco: () => { opened++; } }, 'popup');
+    expect(root.textContent).toContain('Prête à protéger vos clés');
+    expect(root.textContent).toContain('Pas encore relié');
+    buttonByText(root, 'Ouvrir Synco').click();
+    expect(opened).toBe(1);
+    expect(render(ui({ groups: [] }), noop, 'popup').findAll((e) => e.textContent === 'Ouvrir Synco')).toEqual([]);
+  });
+
   test('actions de page : accès à tous les sites avec explications honnêtes, absent du popup', () => {
     let toggled = 0;
     const full = render(ui(), { ...noop, toggleBroad: () => { toggled++; } }, 'options', 'tasks');

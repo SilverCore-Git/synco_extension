@@ -22,6 +22,7 @@
   --border-color: rgba(255, 255, 255, 0.1);
 
   --warn: #f59e0b;
+  --on-warn: #1c1204;
   --danger: #ef4444;
   --overlay: rgba(0, 0, 0, 0.6);
   --radius: 1rem;
@@ -43,6 +44,7 @@
     --border-color: rgba(0, 0, 0, 0.1);
 
     --warn: #b45309;
+    --on-warn: #ffffff;
     --danger: #dc2626;
     --overlay: rgba(0, 0, 0, 0.35);
   }
@@ -232,19 +234,49 @@ body.popup { width: 380px; min-height: 220px; max-height: 580px; overflow-y: aut
 @keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
-/* ---- Popup : état du coffre en un coup d'œil ---- */
-.hero { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 1.5rem 1rem 1.25rem; text-align: center; border-radius: var(--radius); border: 1px solid var(--border-color); background: var(--bg2); }
-.hero-icon { display: grid; place-items: center; width: 3.6rem; height: 3.6rem; margin-bottom: 0.25rem; border-radius: 1.15rem; font-size: 1.8rem; color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); animation: pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-.hero.warn .hero-icon { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
-.hero.ok { border-color: color-mix(in srgb, var(--primary) 35%, var(--border-color)); background: color-mix(in srgb, var(--primary) 5%, var(--bg2)); }
-.hero.warn { border-color: color-mix(in srgb, var(--warn) 40%, var(--border-color)); background: color-mix(in srgb, var(--warn) 5%, var(--bg2)); }
-.hero h1 { font-size: 1.1rem; font-weight: 900; line-height: 1.25; }
-.hero p { font-size: 0.85rem; line-height: 1.5; color: var(--text2); max-width: 17rem; }
-.hero button { margin-top: 0.6rem; width: 100%; }
+/* ---- Popup : état du coffre en un coup d'œil ----
+ * Un grand titre qui finit par le point vert du logo, une phrase, puis le schéma « Synco ↔ clé de cet appareil » :
+ * le lien entre les deux porte l'état (vert et pulsé quand tout va bien, pointillé sinon). La couleur d'état
+ * (--tone) colore le point, le halo, le lien et la clé, et rien d'autre. */
+.popup .topbar { padding: 0.9rem 1.1rem 0.6rem; }
+.popup .mono { font-family: inherit; }
+.popup .card > h2 { font-size: 0.85rem; font-weight: 800; letter-spacing: 0; text-transform: none; color: var(--text); }
+
+.vault-popup { display: flex; flex-direction: column; gap: 0.75rem; }
+.status-hero { --tone: var(--primary); position: relative; isolation: isolate; overflow: hidden; padding: 1.4rem 1.25rem 1.25rem; border-radius: 1.25rem; background: var(--bg2); border: 1px solid color-mix(in srgb, var(--tone) 22%, var(--border-color)); }
+.status-hero.warn { --tone: var(--warn); }
+.status-hero::before { content: ""; position: absolute; z-index: -1; top: -8rem; right: -6rem; width: 15rem; height: 15rem; border-radius: 50%; background: var(--tone); opacity: 0.16; filter: blur(48px); }
+.status-hero h1 { font-size: 1.75rem; font-weight: 900; line-height: 1.08; letter-spacing: -0.025em; text-wrap: balance; }
+.status-hero .stop { color: var(--tone); }
+.status-hero .lede { margin-top: 0.55rem; font-size: 0.92rem; line-height: 1.5; color: var(--text2); }
+.status-hero > button { width: 100%; margin-top: 1rem; min-height: 2.75rem; font-size: 0.95rem; font-weight: 700; }
+.status-hero > button.primary { background: var(--tone); }
+.status-hero.warn > button.primary { color: var(--on-warn); }
+.status-hero > button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--tone) 82%, #000); }
+.status-hero .skeleton.title { height: 1.6rem; width: 80%; margin-bottom: 1rem; }
+
+/* Schéma : [Synco] —— état —— [clé] */
+.link-diagram { --tone: var(--primary); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 0.6rem; margin-top: 1.25rem; padding: 0.9rem 1rem 0.8rem; border-radius: 1rem; background: color-mix(in srgb, var(--text) 4%, var(--bg)); }
+.link-diagram.warn { --tone: var(--warn); }
+.link-diagram.off { --tone: var(--text2); }
+.node { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; min-width: 3.5rem; }
+.node .mark { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 0.8rem; }
+.node-synco .mark { background: var(--app-icon) center / contain no-repeat; }
+.node-key .mark { font-size: 1.25rem; color: var(--tone); background: color-mix(in srgb, var(--tone) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 35%, transparent); }
+.node-label { font-size: 0.75rem; font-weight: 600; color: var(--text2); white-space: nowrap; }
+.wire { display: flex; flex-direction: column; align-items: stretch; gap: 0.3rem; padding-top: 0.15rem; text-align: center; }
+.wire-label { font-size: 0.75rem; font-weight: 700; line-height: 1.2; color: var(--tone); }
+.wire-line { position: relative; display: block; border-top: 2px dashed color-mix(in srgb, var(--tone) 60%, transparent); }
+.link-diagram.ok .wire-line { border-top-style: solid; border-top-color: color-mix(in srgb, var(--tone) 55%, transparent); }
+.wire-line i { display: none; }
+.link-diagram.ok .wire-line i { display: block; position: absolute; top: -5px; left: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 10px var(--tone); animation: travel 2.6s ease-in-out infinite; }
+@keyframes travel { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: calc(100% - 8px); opacity: 0; } }
+
 .help-row { display: flex; justify-content: center; }
 .help-row button { color: var(--text2); }
-.more { margin-top: 0.75rem; }
-@media (prefers-reduced-motion: reduce) { .hero-icon { animation: none; } }
+.help { padding: 0.9rem 1rem; border-radius: 1rem; background: var(--bg2); }
+.help > button { margin-top: 0.75rem; }
+@media (prefers-reduced-motion: reduce) { .link-diagram.ok .wire-line i { animation: none; left: calc(50% - 4px); } }
 
 /* ---- Fenêtre du PIN ----
  * Même pavé que celui de Synco (PinPad.vue) : cases arrondies qui se remplissent en vert, touches bordées de vert,

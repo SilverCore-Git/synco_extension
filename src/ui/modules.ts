@@ -32,6 +32,8 @@ export interface UiHandlers {
   toggleHelp?(): void;
   /** Popup : ouvre la page d'options complète. */
   openFull?(): void;
+  /** Popup : ouvre Synco dans un nouvel onglet (première adresse Synco autorisée). */
+  openSynco?(): void;
 }
 
 export interface ModuleContext {

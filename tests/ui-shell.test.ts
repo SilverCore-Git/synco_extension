@@ -151,7 +151,7 @@ describe('état du coffre dans le popup (vaultHero)', () => {
     ['chargement', o({ status: 'loading' }), null],
     ['extension qui ne répond pas', o({ status: 'error' }), null],
     ['accès refusé', o({ hosts: [{ origin: ORIGIN, granted: false }], groups: group(entry()) }), { title: 'Autorisation nécessaire', action: 'grant', tone: 'warn' }],
-    ['aucune clé', o(), { title: 'Prête à protéger vos clés', action: null, tone: 'ok' }],
+    ['aucune clé', o(), { title: 'Prête à protéger vos clés', action: 'open', tone: 'ok' }],
     ['une clé', o({ groups: group(entry()) }), { title: 'Cet appareil est protégé', action: null, tone: 'ok' }],
     ['deux clés', o({ groups: group(entry(), entry({ deviceId: '9a77c0de-0000-4000-8000-000000000002' })) }), { title: '2 appareils protégés', action: null, tone: 'ok' }],
     ['clé illisible', o({ groups: group(entry({ readable: false })) }), { title: 'Une clé est illisible', action: 'manage', tone: 'warn' }],

@@ -160,8 +160,8 @@ Firefox : un module temporaire est supprimé à la fermeture du navigateur ; R29
 
 | # | Étape | Résultat attendu | Chrome | Firefox |
 | --- | --- | --- | :-: | :-: |
-| R56 | Ouvrir le popup (thème sombre du système, puis clair) | Logo « Synco. » (point vert), icônes visibles (cadenas, clé, globe…), couleurs sobres comme l'application ; aucune icône carrée vide ni texte « ? » | | |
-| R57 | Popup sans brouillon de tâche | Aucun onglet : un seul grand état (« Prête à protéger vos clés » ou « Cet appareil est protégé »), une phrase, et « Comment ça marche ? » ; aucun identifiant d'appareil, aucune adresse, aucun jargon | | |
+| R56 | Ouvrir le popup (thème sombre du système, puis clair) | Logo « Synco. » (point vert), icônes visibles (logo Synco, clé, globe…), couleurs de l'application (vert Synco, halo léger) ; aucune icône carrée vide ni texte « ? » | | |
+| R57 | Popup sans brouillon de tâche | Aucun onglet : un seul grand état (« Prête à protéger vos clés. » avec « Ouvrir Synco », ou « Cet appareil est protégé. »), une phrase, le schéma Synco ↔ clé (lien vert pulsé « Sur votre accord », ou pointillé « Pas encore relié »), et « Comment ça marche ? » ; aucun identifiant d'appareil, aucune adresse, aucun jargon | | |
 | R58 | Retirer l'accès au site (R06 inverse) | Le popup dit « Autorisation nécessaire » avec un seul bouton « Autoriser » | | |
 | R59 | Créer un brouillon (R44–R46), rouvrir le popup | Deux onglets apparaissent (« Coffre », « Tâches » avec la pastille « 1 ») et « Tâches » est ouvert ; après « Ignorer le brouillon », l'onglet disparaît | | |
 | R59b | « Comment ça marche ? » dans le popup | Trois phrases simples s'affichent ; « Plus de détails » ouvre la page des réglages ; « Masquer » les referme | | |
