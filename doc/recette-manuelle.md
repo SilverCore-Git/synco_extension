@@ -52,7 +52,7 @@ Utilisation : `const call = await __synco(); await call('status')`.
 
 | # | Étape | Résultat attendu | Chrome | Firefox |
 | --- | --- | --- | :-: | :-: |
-| R01 | Charger l'extension | Nom « Synco Extension (dev) », icône (cadenas vert), aucune erreur ni avertissement | | |
+| R01 | Charger l'extension | Nom « Synco Extension (dev) », icône Synco (« S » blanc sur carré vert), aucune erreur ni avertissement | | |
 | R02 | Clic sur l'icône de l'extension | Un **popup** s'affiche sous l'icône (pas d'onglet) : version, accès au site, « Aucune clé… » | | |
 | R03 | Accès au site (Chrome : Détails → Accès au site ; Firefox : Autorisations) | Accès à `localhost` accordé | | |
 | R04 | Sur la page, F5 puis `document.documentElement.dataset.syncoDebug` | `injecté,page-prête` (build de développement) | | |
