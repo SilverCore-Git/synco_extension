@@ -3,7 +3,7 @@
 Extension Chrome et Firefox pour [Synco](https://synco.one). Elle a deux rôles, **strictement séparés** :
 
 1. **Coffre de clés** (`src/vault/`) : un type de coffre « extension » pour le chiffrement de bout en bout de Synco. Il ne répond **qu'aux origines Synco** de la liste blanche (correspondance exacte). Ce n'est pas un gestionnaire de passkeys : aucune interception de `navigator.credentials`, aucune réponse à d'autres sites.
-2. **Actions de page** (`src/page-actions/`) : intégrations au navigateur valables sur tous les sites (par exemple « Créer une tâche dans Synco » sur une sélection de texte). Ce module n'a jamais accès au coffre.
+2. **Actions de page** (`src/page-actions/`) : intégrations au navigateur valables sur tous les sites (par exemple « Créer une tâche dans Synco » sur une sélection de texte). Ce module n'a jamais accès au coffre. **Masqué pour l'instant** (aucun menu, aucun onglet) tant que l'envoi à Synco n'est pas branché ; le code reste en place.
 
 > **État : phase P6 (documentation).** Le coffre, le canal page ↔ extension, l'interface (fenêtre d'accord, popup, page d'options) et le squelette des actions de page (menu contextuel, [contrat de message](doc/page-actions.md)) sont en place. Rien n'est encore envoyé à Synco par les actions de page. Les paquets de publication (Chrome, Firefox, source pour l'AMO) se fabriquent avec `node scripts/package.mjs` ; la recette dans un vrai navigateur est dans [doc/recette-manuelle.md](doc/recette-manuelle.md). Spécification du coffre et modèle de menace : [doc/16-coffre-extension.md](doc/16-coffre-extension.md).
 

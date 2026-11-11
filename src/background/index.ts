@@ -2,8 +2,7 @@
 // Tous les écouteurs sont enregistrés de façon synchrone au chargement : un worker rendormi est réveillé par
 // l'événement, et rien du coffre ne vit en mémoire entre deux messages (tout est relu depuis storage.local).
 import { api } from '../shared/api';
-import { createTaskAction, registerPageActions, type PageActionsHost } from '../page-actions/actions';
-import { DraftStore, type SessionArea } from '../page-actions/store';
+import { registerPageActions, type PageActionsHost } from '../page-actions/actions';
 import { BUILT_IN_ORIGINS } from '../shared/origins';
 import { errorResponse, PROMPT_PAGE } from '../shared/protocol';
 import { IdbDeviceSecret } from '../vault/idbSecret';
@@ -94,7 +93,11 @@ const pageHost: PageActionsHost = {
     if (text) await api.action.setBadgeBackgroundColor({ color: '#16ac77' });
   },
 };
-registerPageActions(pageHost, [createTaskAction({ store: new DraftStore(api.storage.session as SessionArea), host: pageHost })]);
+// Masqué tant que l'envoi à Synco n'est pas branché : aucune action, donc aucun menu (removeAll à l'installation et à
+// chaque mise à jour efface aussi celui des versions précédentes). Pour le rétablir (imports createTaskAction depuis
+// ../page-actions/actions et DraftStore, SessionArea depuis ../page-actions/store) :
+// registerPageActions(pageHost, [createTaskAction({ store: new DraftStore(api.storage.session as SessionArea), host: pageHost })]);
+registerPageActions(pageHost, []);
 
 // Retour vers l'onglet Synco après l'installation ou l'octroi de l'accès au site (onboarding.ts).
 const onboardingHost: OnboardingHost = {

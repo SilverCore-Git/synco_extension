@@ -16,6 +16,9 @@ const mod = (id: string, over: Partial<UiModule> = {}): UiModule => ({
   ...over,
 });
 
+/** Le registre avec le module « Tâches » (masqué aujourd'hui) : il reste testé pour le jour où il revient. */
+const withTasks = async (): Promise<UiModule[]> => [(await import('../src/ui/modules/vault')).vaultModule, (await import('../src/ui/modules/tasks')).tasksModule];
+
 const app = (modules: UiModule[], active: string | null = null, surface: 'popup' | 'options' = 'options', onSelect: (id: string) => void = () => {}) =>
   asEl(renderApp({ doc: fakeDoc(), surface, state, handlers, version: '9.9.9', active, onSelect, modules, now: 0 }));
 const tabs = (root: FakeElement) => root.findAll((e) => e.getAttribute('role') === 'tab');
@@ -104,15 +107,15 @@ describe('interface modulaire', () => {
     expect(options.textContent).toContain('v1.0.0');
   });
 
-  test('registre réel : le coffre est le premier module, les actions de page le second', async () => {
+  test('registre réel : le coffre seul (« Tâches » masqué tant que l\'envoi à Synco n\'est pas branché)', async () => {
     const { MODULES } = await import('../src/ui/registry');
-    expect(MODULES.map((m) => m.id)).toEqual(['vault', 'tasks']);
+    expect(MODULES.map((m) => m.id)).toEqual(['vault']);
     expect(new Set(MODULES.map((m) => m.id)).size).toBe(MODULES.length);
     for (const m of MODULES) expect(m.id).toMatch(/^[a-z][a-z-]*$/);
   });
 
   test('brouillon en attente : pastille sur l\'onglet Tâches, ouvert par défaut dans le popup', async () => {
-    const { MODULES } = await import('../src/ui/registry');
+    const MODULES = await withTasks();
     const draft = { v: 1 as const, text: 'Appeler', url: '', title: '', capturedAt: 0 };
     const root = asEl(renderApp({ doc: fakeDoc(), surface: 'popup', state: { options: opts, draft, help: false }, handlers, version: '1', active: null, onSelect() {}, modules: MODULES, now: 0 }));
     const selected = tabs(root).filter((t) => t.getAttribute('aria-selected') === 'true');
@@ -123,7 +126,7 @@ describe('interface modulaire', () => {
 
 describe('popup minimaliste', () => {
   const popup = async (draft: UiState['draft'], over: Partial<OptionsState> = {}) => {
-    const { MODULES } = await import('../src/ui/registry');
+    const MODULES = await withTasks();
     return asEl(renderApp({ doc: fakeDoc(), surface: 'popup', state: { options: { ...opts, hosts: [{ origin: 'https://app.synco.one', granted: true }], ...over }, draft, help: false }, handlers, version: '1', active: null, onSelect() {}, modules: MODULES, now: 0 }));
   };
 
@@ -134,7 +137,7 @@ describe('popup minimaliste', () => {
   });
 
   test('page des réglages : les deux modules restent visibles', async () => {
-    const { MODULES } = await import('../src/ui/registry');
+    const MODULES = await withTasks();
     const root = asEl(renderApp({ doc: fakeDoc(), surface: 'options', state, handlers, version: '1', active: null, onSelect() {}, modules: MODULES, now: 0 }));
     expect(tabs(root).map((t) => t.textContent)).toEqual(['Coffre', 'Tâches']);
   });

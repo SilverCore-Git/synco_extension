@@ -5,6 +5,11 @@ il ne peut ni importer, ni lire, ni écrire quoi que ce soit du coffre (voir « 
 
 ## État de la phase actuelle
 
+**Masqué** depuis le 11 novembre 2026 : le worker n'enregistre aucune action (`registerPageActions(pageHost, [])`, ce
+qui efface aussi le menu des versions précédentes) et le module « Tâches » est retiré du registre de l'interface
+(`src/ui/registry.ts`). Le code, le contrat et les tests restent : pour rétablir, rendre `createTaskAction` au worker
+et `tasksModule` au registre.
+
 Squelette : **aucun appel réseau, aucun jeton, aucun envoi.** Le menu contextuel « Créer une tâche dans Synco »
 construit un brouillon local, validé, que le popup de l'extension affiche (« Brouillon de tâche en attente »).
 
