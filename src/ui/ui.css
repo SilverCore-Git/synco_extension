@@ -147,7 +147,7 @@ button.busy::after { content: ""; position: absolute; width: 1rem; height: 1rem;
 .tile.primary { color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); }
 .tile.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
 
-.chip { display: inline-block; font-size: 0.625rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.125rem 0.5rem; border-radius: 999px; white-space: nowrap; }
+.chip { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; white-space: nowrap; }
 .chip-ok { color: var(--primary); background: color-mix(in srgb, var(--primary) 15%, transparent); }
 .chip-warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
 .chip-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
@@ -170,7 +170,6 @@ button.busy::after { content: ""; position: absolute; width: 1rem; height: 1rem;
 .list > li { padding: 0.75rem 0; border-top: 1px solid var(--border-color); }
 .list > li:first-child { border-top: 0; padding-top: 0; }
 .list > li:last-child { padding-bottom: 0; }
-.group-title { font: 600 0.8rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text2); overflow-wrap: anywhere; margin: 0.25rem 0 0.6rem; }
 
 .points { display: grid; gap: 0.5rem; font-size: 0.82rem; color: var(--text2); }
 .points li { display: flex; gap: 0.6rem; }
@@ -211,16 +210,22 @@ body.popup { width: 380px; min-height: 220px; max-height: 580px; overflow-y: aut
 .popup .main { padding: 0.9rem 0.75rem 0.75rem; }
 .popup .panel-title { font-size: 1.05rem; }
 
-/* Page d'options : colonne latérale puis contenu */
-.options .shell { display: grid; grid-template-columns: 16rem minmax(0, 1fr); grid-template-rows: auto 1fr; min-height: 100vh; }
-.options .topbar { grid-column: 1; padding: 1.25rem 1rem 0.5rem; background: var(--bg2); border-right: 1px solid var(--border-color); }
-.options .tabs { grid-column: 1; flex-direction: column; padding: 0.5rem 0.75rem 1rem; background: var(--bg2); border-right: 1px solid var(--border-color); }
-.options .main { grid-column: 2; grid-row: 1 / span 2; padding: 2rem; max-width: 52rem; }
-@media (max-width: 720px) {
-  .options .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr; }
-  .options .topbar, .options .tabs { grid-column: 1; border-right: 0; }
-  .options .tabs { flex-direction: row; overflow-x: auto; padding-top: 0; border-bottom: 1px solid var(--border-color); }
-  .options .main { grid-column: 1; grid-row: auto; padding: 1rem; }
+/* Page d'options : une colonne centrée (.frame) partagée par la barre du haut et le contenu ; onglets éventuels en
+ * ligne sous la barre (un seul module aujourd'hui : pas d'onglets). */
+.options .shell { min-height: 100vh; }
+.options .frame { width: 100%; max-width: 68rem; margin: 0 auto; padding-inline: 2rem; }
+.options .bar { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); }
+.options .topbar { min-height: 4.25rem; padding: 0; gap: 0.75rem; }
+.options .topbar .wordmark { height: 1.45rem; }
+.options .product { font-size: 1rem; font-weight: 600; color: var(--text2); }
+.options .version { font-size: 0.8rem; font-weight: 600; color: var(--text2); font-variant-numeric: tabular-nums; }
+.options .tabs { gap: 0.25rem; padding-bottom: 0.5rem; }
+.options .tab { border-left: 0; }
+.options .tab[aria-selected="true"] { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.options .main { padding: 1.25rem 0 4rem; }
+@media (max-width: 760px) {
+  .options .frame { padding-inline: 1rem; }
+  .options .tabs { overflow-x: auto; }
 }
 
 /* ---- Logo (masque généré dans icons.css : lettres à la couleur du texte, point vert Synco) ---- */
@@ -277,6 +282,71 @@ body.popup { width: 380px; min-height: 220px; max-height: 580px; overflow-y: aut
 .help { padding: 0.9rem 1rem; border-radius: 1rem; background: var(--bg2); }
 .help > button { margin-top: 0.75rem; }
 @media (prefers-reduced-motion: reduce) { .link-diagram.ok .wire-line i { animation: none; left: calc(50% - 4px); } }
+
+/* ---- Page des réglages : coffre ----
+ * Le grand état du popup en large (mots à gauche, schéma à droite), puis deux colonnes : les appareils (ce qu'on
+ * gère) et, à côté, les sites et « À savoir ». Panneaux séparés par un pas de ton, lignes sans filets. */
+.vault-page { display: flex; flex-direction: column; gap: 1.25rem; }
+.status-hero.wide { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: center; gap: 2.5rem; padding: 2.25rem 2.5rem; border-radius: 1.5rem; }
+.status-hero.loading { padding: 2.25rem 2.5rem; border-radius: 1.5rem; }
+.status-hero.loading .skeleton.title { height: 2.6rem; width: 45%; }
+.status-hero.loading .skeleton:not(.title) { width: 55%; }
+.status-hero.wide::before { top: -10rem; right: -4rem; width: 26rem; height: 26rem; opacity: 0.18; filter: blur(70px); }
+.status-hero.wide h1 { font-size: clamp(2rem, 1.2rem + 2.4vw, 2.85rem); line-height: 1.04; letter-spacing: -0.03em; }
+.status-hero.wide .lede { margin-top: 0.8rem; font-size: 1.05rem; max-width: 34ch; }
+.status-hero.wide .status-words > button { margin-top: 1.4rem; min-height: 2.9rem; min-width: 12rem; font-size: 1rem; font-weight: 700; }
+.status-hero.wide .status-words > button.primary { background: var(--tone); }
+.status-hero.wide.warn .status-words > button.primary { color: var(--on-warn); }
+.status-hero.wide .link-diagram { margin-top: 0; padding: 1.5rem 1.5rem 1.25rem; gap: 1rem; border-radius: 1.25rem; }
+.status-hero.wide .node .mark { width: 4rem; height: 4rem; border-radius: 1.1rem; }
+.status-hero.wide .node-key .mark { font-size: 1.7rem; }
+.status-hero.wide .node-label { font-size: 0.85rem; }
+.status-hero.wide .wire { padding-top: 0.55rem; gap: 0.5rem; }
+.status-hero.wide .wire-label { font-size: 0.85rem; }
+
+.vault-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 1.25rem; }
+.vault-grid .about { grid-column: 1 / -1; }
+.vault-grid .about .points { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 2rem; }
+.panel { padding: 1.4rem 1.5rem 1.5rem; border-radius: 1.25rem; background: var(--bg2); border: 1px solid var(--border-color); }
+.panel-top { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.9rem; }
+.panel-top h2 { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.01em; }
+.panel-top .count { font-size: 0.9rem; font-weight: 600; color: var(--text2); font-variant-numeric: tabular-nums; }
+.panel > .muted { font-size: 0.875rem; margin-bottom: 0.9rem; }
+
+.groups { display: flex; flex-direction: column; gap: 1.1rem; }
+.group-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0 0 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--text2); overflow-wrap: anywhere; }
+.device-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.device { display: flex; align-items: center; gap: 0.9rem; padding: 0.85rem 0.9rem; border-radius: 1rem; background: color-mix(in srgb, var(--text) 3.5%, transparent); transition: background-color 0.15s, transform 0.15s; }
+.device:hover { background: color-mix(in srgb, var(--text) 6%, transparent); transform: translateY(-1px); }
+.device-mark { flex: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 0.8rem; font-size: 1.2rem; color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.device.warn .device-mark { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.device-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.device-text strong { font-size: 0.98rem; }
+.device-text .muted { font-size: 0.85rem; }
+.device-text .chips { margin-top: 0.3rem; }
+.device > button { flex: none; }
+.none { padding: 1.5rem 1.25rem; border-radius: 1rem; background: color-mix(in srgb, var(--text) 3.5%, transparent); }
+.none strong { display: block; font-size: 1rem; margin-bottom: 0.25rem; }
+
+.site-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.site { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 0.7rem; row-gap: 0.1rem; padding: 0.75rem 0.9rem; border-radius: 0.9rem; background: color-mix(in srgb, var(--text) 3.5%, transparent); }
+.site-dot { grid-row: span 2; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 20%, transparent); }
+.site.warn .site-dot { background: var(--warn); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 20%, transparent); }
+.site-origin { font-weight: 600; overflow-wrap: anywhere; }
+.site-state { font-size: 0.8rem; font-weight: 600; color: var(--primary); }
+.site.warn .site-state { color: var(--warn); }
+.panel .points { font-size: 0.875rem; gap: 0.7rem; }
+
+@media (max-width: 860px) {
+  .status-hero.wide { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; padding: 1.75rem 1.5rem; }
+  .vault-grid { grid-template-columns: minmax(0, 1fr); }
+  .vault-grid .about .points { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .device { flex-wrap: wrap; }
+  .device > button { margin-left: 3.65rem; }
+}
+@media (prefers-reduced-motion: reduce) { .device { transition: none; } .device:hover { transform: none; } }
 
 /* ---- Fenêtre du PIN ----
  * Même pavé que celui de Synco (PinPad.vue) : cases arrondies qui se remplissent en vert, touches bordées de vert,

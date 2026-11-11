@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { groupEntries, OptionsModel, type OptionsBackend, type OptionsState } from '../src/ui/options/model';
 import { renderApp } from '../src/ui/app';
 import type { Surface, UiHandlers, UiState } from '../src/ui/modules';
+import { tasksModule } from '../src/ui/modules/tasks';
+import { vaultModule } from '../src/ui/modules/vault';
 import type { VaultEntry } from '../src/vault/vault';
 import { asEl, buttonByText, fakeDoc } from './helpers/fakeDom';
 import { DEVICE, DEVICE_2, ORIGIN, OTHER_ORIGIN } from './helpers/vaultFixtures';
@@ -170,7 +172,7 @@ describe('modules : coffre et actions de page', () => {
   });
   const ui = (over: Partial<OptionsState> = {}, draft: UiState['draft'] = null, help = false): UiState => ({ options: state(over), draft, help });
   const render = (s: UiState, h: UiHandlers = noop, surface: Surface = 'options', active: string | null = 'vault') =>
-    asEl(renderApp({ doc: fakeDoc(), surface, state: s, handlers: h, version: '1.2.3', active, onSelect() {}, now: NOW }));
+    asEl(renderApp({ doc: fakeDoc(), surface, state: s, handlers: h, version: '1.2.3', active, onSelect() {}, now: NOW, ...(active === 'tasks' ? { modules: [vaultModule, tasksModule] } : {}) }));
 
   test('coffre : état, version, accès au site et clés s\'affichent en français', () => {
     const t = render(ui()).textContent;
@@ -178,19 +180,22 @@ describe('modules : coffre et actions de page', () => {
     expect(t).toContain('Accès accordé');
     expect(t).toContain('Appareil 3f2b8c1e…');
     expect(t).toContain('Prêt');
-    expect(t).toContain('Créé le');
+    expect(t).toContain('Relié le');
+    expect(t).toContain('Cet appareil est protégé.'); // le même grand état que le popup
+    expect(t).not.toContain('Tâches'); // module masqué tant que l'envoi à Synco n'est pas branché
     expect(t).toContain('pas un gestionnaire de passkeys');
     expect(t).toContain('pas protégée par du matériel');
   });
 
-  test('page complète, accès refusé : bouton « Accorder l\'accès » relié au gestionnaire, pastille ! sur l\'onglet', () => {
+  test('page complète, accès refusé : un seul bouton « Autoriser » (dans le grand état), relié au gestionnaire', () => {
     let granted = 0;
     const root = render(ui({ hosts: [{ origin: ORIGIN, granted: false }] }), { ...noop, grantAccess: () => { granted++; } });
+    expect(root.textContent).toContain('Autorisation nécessaire');
     expect(root.textContent).toContain('Accès refusé');
-    buttonByText(root, 'Accorder l\'accès').click();
+    expect(root.findAll((e) => e.tagName === 'button' && e.textContent === 'Autoriser')).toHaveLength(1);
+    buttonByText(root, 'Autoriser').click();
     expect(granted).toBe(1);
-    expect(root.findAll((e) => e.getAttribute('class')?.startsWith('tab-badge') === true).map((e) => e.textContent)).toContain('!');
-    expect(render(ui()).findAll((e) => e.textContent === 'Accorder l\'accès')).toEqual([]);
+    expect(render(ui()).findAll((e) => e.textContent === 'Autoriser')).toEqual([]);
   });
 
   test('popup : un état clair, aucun identifiant ni adresse, bouton vers les réglages dans l\'en-tête', () => {
@@ -273,7 +278,8 @@ describe('modules : coffre et actions de page', () => {
     expect(t).toContain('2 échecs de PIN');
     expect(t).toContain('Illisible');
     expect(t).toContain('Date de création inconnue');
-    expect(t).toContain('Origine inactive dans cette version');
+    expect(t).toContain('Inactive dans cette version');
+    expect(t).toContain('3 clés · 1 inactive'); // même compte que le schéma du grand état
   });
 
   test('« Supprimer » ouvre la confirmation maison, sans dialogue natif', () => {

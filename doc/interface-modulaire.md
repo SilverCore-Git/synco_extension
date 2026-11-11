@@ -46,9 +46,11 @@ Le **popup** est pensé pour quelqu'un qui n'est pas technicien : un seul état 
 « Synco ↔ clé de cet appareil » dont le lien dit l'état : « Sur votre accord », « Pas encore autorisé »…), au plus
 une action, et « Comment ça marche ? » pour qui veut savoir. Pas d'identifiants, d'adresses ni de jargon ; le détail
 (clés, suppression, accès élargi) est dans la page d'options. Un module qui n'a rien d'utile à dire dans le popup
-renvoie `null` : il n'y a alors pas d'onglet (c'est le cas de « Tâches » tant qu'il n'y a pas de brouillon).
+renvoie `null` : il n'y a alors pas d'onglet. Aujourd'hui seul le coffre est inscrit au registre (« Tâches » est masqué,
+voir [page-actions.md](page-actions.md)) : ni le popup ni la page d'options n'ont d'onglets.
 
-Le **popup** (380 px) et la **page d'options** (colonne latérale) affichent les mêmes modules : un module reçoit
+Le **popup** (380 px) et la **page d'options** (une colonne centrée : barre « Synco. Extension » et version, puis le
+même grand état que le popup en large, « Appareils reliés », « Sites Synco » et « À savoir ») affichent les mêmes modules : un module reçoit
 `surface: 'popup' | 'options'` et adapte son contenu (version compacte dans le popup). Un module sans contenu sur une
 surface disparaît des onglets ; avec un seul module visible, il n'y a pas d'onglets. À l'ouverture du popup, c'est le
 premier module qui attend quelque chose de l'utilisateur (pastille) qui s'ouvre. La page d'options s'ouvre sur

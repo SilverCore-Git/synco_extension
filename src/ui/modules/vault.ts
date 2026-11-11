@@ -1,6 +1,6 @@
-import { h, type Child } from '../dom';
-import { formatDate, formatDuration, shortId } from '../format';
-import { button, card, chip, emptyState, icon, panelHeader, skeleton, tile, type IconName } from '../kit';
+import { h } from '../dom';
+import { formatDay, formatDuration, shortId } from '../format';
+import { button, chip, icon, skeleton, tile, type IconName } from '../kit';
 import type { ModuleContext, UiModule } from '../modules';
 import type { VaultEntry } from '../../vault/vault';
 import type { OptionsState } from '../options/model';
@@ -17,14 +17,13 @@ export const vaultModule: UiModule = {
   badge: ({ state }) => (state.options.status === 'ready' && state.options.hosts.some((x) => !x.granted) ? { text: '!', tone: 'warn' } : null),
 };
 
-function entryStatus(doc: Document, e: VaultEntry, active: boolean, now: number): HTMLElement[] {
+function entryStatus(doc: Document, e: VaultEntry, now: number): HTMLElement[] {
   const chips: HTMLElement[] = [];
   const locked = e.lockedUntil !== null && e.lockedUntil > now;
   if (!e.readable) chips.push(chip(doc, 'bad', 'Illisible'));
   else if (locked) chips.push(chip(doc, 'warn', `Verrouillé ${formatDuration((e.lockedUntil! - now) / 1000)}`));
   else if (e.failures) chips.push(chip(doc, 'warn', `${e.failures} échec${e.failures > 1 ? 's' : ''} de PIN`));
   else chips.push(chip(doc, 'ok', 'Prêt'));
-  if (!active) chips.push(chip(doc, 'warn', 'Origine inactive dans cette version'));
   return chips;
 }
 
@@ -114,6 +113,27 @@ function linkDiagram(doc: Document, hero: Hero): HTMLElement {
   );
 }
 
+/**
+ * Le grand état (popup et page des réglages) : titre qui finit par le point du logo, une phrase, le schéma, et au plus
+ * une action. Sur la page, la liste des clés est juste dessous : pas de bouton « Gérer mes clés ».
+ */
+function statusHero(doc: Document, loading: boolean, hero: Hero | null, handlers: ModuleContext['handlers'], surface: 'popup' | 'options'): HTMLElement | null {
+  if (loading) return h(doc, 'section', { class: surface === 'options' ? 'status-hero loading' : 'status-hero', attrs: { 'aria-busy': 'true' } }, h(doc, 'div', { class: 'skeleton title' }), skeleton(doc));
+  if (!hero) return null;
+  const action =
+    hero.action === 'grant' ? button(doc, { label: 'Autoriser', kind: 'primary', onClick: handlers.grantAccess })
+    : hero.action === 'manage' && surface === 'popup' && handlers.openFull ? button(doc, { label: 'Gérer mes clés', kind: 'primary', onClick: handlers.openFull })
+    : hero.action === 'open' && handlers.openSynco ? button(doc, { label: 'Ouvrir Synco', kind: 'primary', onClick: handlers.openSynco })
+    : null;
+  const words = [h(doc, 'h1', {}, hero.title, h(doc, 'span', { class: 'stop', text: '.' })), h(doc, 'p', { class: 'lede', text: hero.text })];
+  return surface === 'popup'
+    ? h(doc, 'section', { class: `status-hero ${hero.tone}`, attrs: { 'aria-live': 'polite' } }, ...words, linkDiagram(doc, hero), action)
+    : h(doc, 'section', { class: `status-hero wide ${hero.tone}`, attrs: { 'aria-live': 'polite' } },
+        h(doc, 'div', { class: 'status-words' }, ...words, action),
+        linkDiagram(doc, hero),
+      );
+}
+
 /** Popup : minimaliste. Le détail (clés, appareils, suppression) est dans la page des réglages, un clic plus loin. */
 function renderVaultPopup({ doc, now, state, handlers }: ModuleContext): HTMLElement {
   const hero = vaultHero(state.options, now);
@@ -131,18 +151,7 @@ function renderVaultPopup({ doc, now, state, handlers }: ModuleContext): HTMLEle
       )
     : null;
 
-  const status = loading
-    ? h(doc, 'section', { class: 'status-hero', attrs: { 'aria-busy': 'true' } }, h(doc, 'div', { class: 'skeleton title' }), skeleton(doc))
-    : hero
-      ? h(doc, 'section', { class: `status-hero ${hero.tone}`, attrs: { 'aria-live': 'polite' } },
-          h(doc, 'h1', {}, hero.title, h(doc, 'span', { class: 'stop', text: '.' })),
-          h(doc, 'p', { class: 'lede', text: hero.text }),
-          linkDiagram(doc, hero),
-          hero.action === 'grant' ? button(doc, { label: 'Autoriser', kind: 'primary', onClick: handlers.grantAccess }) : null,
-          hero.action === 'manage' && handlers.openFull ? button(doc, { label: 'Gérer mes clés', kind: 'primary', onClick: handlers.openFull }) : null,
-          hero.action === 'open' && handlers.openSynco ? button(doc, { label: 'Ouvrir Synco', kind: 'primary', onClick: handlers.openSynco }) : null,
-        )
-      : null;
+  const status = statusHero(doc, loading, hero, handlers, 'popup');
 
   return h(doc, 'div', { class: 'vault-popup' },
     status,
@@ -158,48 +167,72 @@ function renderVaultPopup({ doc, now, state, handlers }: ModuleContext): HTMLEle
 function renderVaultFull({ doc, now, state, handlers }: ModuleContext): HTMLElement {
   const s = state.options;
   const loading = s.status === 'loading';
+  const hero = vaultHero(s, now);
 
-  const hostRows = s.hosts.map((host) =>
-    h(doc, 'li', {},
-      h(doc, 'div', { class: 'row wrap' },
-        tile(doc, 'globe2', host.granted ? 'primary' : 'warn'),
-        h(doc, 'div', { class: 'grow' }, h(doc, 'div', { class: 'mono', text: host.origin }), h(doc, 'div', { class: 'chips' }, chip(doc, host.granted ? 'ok' : 'bad', host.granted ? 'Accès accordé' : 'Accès refusé'))),
-        host.granted ? null : button(doc, { label: 'Accorder l\'accès', kind: 'primary', small: true, onClick: handlers.grantAccess }),
+  const deviceRow = (e: VaultEntry) =>
+    h(doc, 'li', { class: e.readable ? 'device' : 'device warn' },
+      h(doc, 'span', { class: 'device-mark' }, icon(doc, e.readable ? 'key-fill' : 'exclamation-triangle-fill')),
+      h(doc, 'div', { class: 'device-text' },
+        h(doc, 'strong', { text: `Appareil ${shortId(e.deviceId)}` }),
+        h(doc, 'span', { class: 'muted', text: e.createdAt === null ? 'Date de création inconnue' : `Relié le ${formatDay(e.createdAt)}` }),
+        h(doc, 'div', { class: 'chips' }, ...entryStatus(doc, e, now)),
       ),
-    ),
-  );
-
-  const entryRow = (e: VaultEntry, active: boolean) =>
-    h(doc, 'li', {},
-      h(doc, 'div', { class: 'row wrap' },
-        tile(doc, 'key-fill', e.readable ? 'primary' : 'warn'),
-        h(doc, 'div', { class: 'grow' },
-          h(doc, 'strong', { text: `Appareil ${shortId(e.deviceId)}` }),
-          h(doc, 'div', { class: 'muted', text: e.createdAt === null ? 'Date de création inconnue' : `Créé le ${formatDate(e.createdAt)}` }),
-          h(doc, 'div', { class: 'chips' }, ...entryStatus(doc, e, active, now)),
-        ),
-        button(doc, {
-          label: 'Supprimer', kind: 'danger', small: true, icon: 'trash3',
-          ariaLabel: `Supprimer la clé de l'appareil ${shortId(e.deviceId)} pour ${e.origin}`,
-          onClick: () => handlers.askRemove(e.origin, e.deviceId),
-        }),
-      ),
+      button(doc, {
+        label: 'Supprimer', kind: 'danger', small: true, icon: 'trash3',
+        ariaLabel: `Supprimer la clé de l'appareil ${shortId(e.deviceId)} pour ${e.origin}`,
+        onClick: () => handlers.askRemove(e.origin, e.deviceId),
+      }),
     );
 
-  const keys: Child[] =
-    s.groups.length === 0
-      ? [emptyState(doc, 'key-fill', 'Aucune clé enregistrée', 'Quand vous choisirez ce coffre depuis Synco, la clé de votre appareil apparaîtra ici.')]
-      : s.groups.map((g) => h(doc, 'div', {}, h(doc, 'h3', { class: 'group-title', text: g.origin }), h(doc, 'ul', { class: 'list' }, ...g.entries.map((e) => entryRow(e, g.active)))));
+  // Même compte que le schéma du grand état : les clés des adresses actives ; les autres sont signalées à part.
+  const count = s.groups.filter((g) => g.active).reduce((n, g) => n + g.entries.length, 0);
+  const inactive = s.groups.filter((g) => !g.active).reduce((n, g) => n + g.entries.length, 0);
+  const countText = (count === 0 ? 'Aucune clé' : count === 1 ? '1 clé' : `${count} clés`) + (inactive ? ` · ${inactive} inactive${inactive > 1 ? 's' : ''}` : '');
+  const several = s.groups.length > 1 || s.groups.some((g) => !g.active);
+  const devices = h(doc, 'section', { class: 'panel devices', attrs: { 'aria-labelledby': 'devices-title' } },
+    h(doc, 'header', { class: 'panel-top' },
+      h(doc, 'h2', { attrs: { id: 'devices-title' }, text: 'Appareils reliés' }),
+      loading ? null : h(doc, 'span', { class: 'count', text: countText }),
+    ),
+    loading
+      ? skeleton(doc)
+      : s.groups.length === 0
+        ? h(doc, 'div', { class: 'none' },
+            h(doc, 'strong', { text: 'Aucune clé enregistrée' }),
+            h(doc, 'p', { class: 'muted', text: 'Quand vous choisirez ce coffre depuis Synco, la clé de cet appareil apparaîtra ici.' }),
+          )
+        : h(doc, 'div', { class: 'groups' },
+            ...s.groups.map((g) => h(doc, 'div', { class: 'group' },
+              several ? h(doc, 'h3', { class: 'group-title' }, g.origin, g.active ? null : chip(doc, 'off', 'Inactive dans cette version')) : null,
+              h(doc, 'ul', { class: 'device-list' }, ...g.entries.map((e) => deviceRow(e))),
+            )),
+          ),
+  );
+
+  const sites = h(doc, 'section', { class: 'panel', attrs: { 'aria-labelledby': 'sites-title' } },
+    h(doc, 'header', { class: 'panel-top' }, h(doc, 'h2', { attrs: { id: 'sites-title' }, text: 'Sites Synco' })),
+    h(doc, 'p', { class: 'muted', text: 'L\'extension ne répond qu\'à ces adresses exactes, et seulement si votre navigateur l\'y autorise.' }),
+    loading
+      ? skeleton(doc)
+      : h(doc, 'ul', { class: 'site-list' },
+          ...s.hosts.map((host) => h(doc, 'li', { class: host.granted ? 'site ok' : 'site warn' },
+            h(doc, 'span', { class: 'site-dot', attrs: { 'aria-hidden': 'true' } }),
+            h(doc, 'span', { class: 'site-origin', text: host.origin }),
+            h(doc, 'span', { class: 'site-state', text: host.granted ? 'Accès accordé' : 'Accès refusé' }),
+          )),
+        ),
+  );
 
   const point = (text: string) => h(doc, 'li', {}, icon(doc, 'shield-check'), h(doc, 'span', { text }));
-  const about = card(doc, { title: 'À savoir', icon: 'info-circle-fill' },
-        h(doc, 'ul', { class: 'points' },
-          point('Cette extension garde une clé locale par appareil. Elle n\'est jamais envoyée à Synco, et le site ne l\'obtient qu\'avec votre accord dans la fenêtre de l\'extension.'),
-          point('Ce n\'est pas un gestionnaire de passkeys : elle ne répond à aucun autre site que Synco.'),
-          point('La clé n\'est pas protégée par du matériel : quelqu\'un qui utilise votre session ou copie votre profil de navigateur peut l\'obtenir. Verrouillez votre ordinateur quand vous le quittez.'),
-          point('Supprimer une clé : l\'appareil devra être relié de nouveau depuis Synco.'),
-        ),
-      );
+  const about = h(doc, 'section', { class: 'panel about', attrs: { 'aria-labelledby': 'about-title' } },
+    h(doc, 'header', { class: 'panel-top' }, h(doc, 'h2', { attrs: { id: 'about-title' }, text: 'À savoir' })),
+    h(doc, 'ul', { class: 'points' },
+      point('Une clé locale par appareil. Elle n\'est jamais envoyée à Synco ; le site ne l\'obtient qu\'avec votre accord, dans la fenêtre de l\'extension.'),
+      point('Ce n\'est pas un gestionnaire de passkeys : l\'extension ne répond à aucun autre site que Synco.'),
+      point('La clé n\'est pas protégée par du matériel : quelqu\'un qui utilise votre session ou copie votre profil de navigateur peut l\'obtenir. Verrouillez votre ordinateur quand vous le quittez.'),
+      point('Supprimer une clé : l\'appareil devra être relié de nouveau depuis Synco.'),
+    ),
+  );
 
   const dialog = s.confirm
     ? h(doc, 'div', { class: 'overlay' },
@@ -207,7 +240,7 @@ function renderVaultFull({ doc, now, state, handlers }: ModuleContext): HTMLElem
           h(doc, 'div', { class: 'dialog-head' }, tile(doc, 'exclamation-triangle-fill'), h(doc, 'h2', { text: 'Supprimer cette clé ?', attrs: { id: 'confirm-title' } })),
           h(doc, 'p', { attrs: { id: 'confirm-body' } },
             `La clé de l'appareil ${shortId(s.confirm.deviceId)} pour `,
-            h(doc, 'span', { class: 'mono', text: s.confirm.origin }),
+            h(doc, 'strong', { text: s.confirm.origin }),
             ' sera effacée de l\'extension. Cet appareil devra être relié de nouveau depuis Synco. Cette action est irréversible.',
           ),
           h(doc, 'div', { class: 'actions' },
@@ -218,15 +251,11 @@ function renderVaultFull({ doc, now, state, handlers }: ModuleContext): HTMLElem
       )
     : null;
 
-  return h(doc, 'div', { class: 'stack' },
-    panelHeader(doc, 'Coffre de clés', 'Garde la clé de vos appareils Synco hors de la page : l\'accès s\'autorise dans une fenêtre de l\'extension.'),
-    card(doc, { title: 'Accès aux sites Synco', icon: 'globe2' },
-      h(doc, 'p', { class: 'muted', text: 'L\'extension ne répond qu\'à ces adresses exactes. Selon votre navigateur, cet accès doit être accordé par vous : sans lui, Synco ne peut pas utiliser l\'extension.' }),
-      h(doc, 'div', { class: 'stack' }, loading ? skeleton(doc) : h(doc, 'ul', { class: 'list' }, ...hostRows)),
-    ),
-    card(doc, { title: 'Clés enregistrées', icon: 'key-fill' }, ...(loading ? [skeleton(doc)] : keys)),
-    about,
+  return h(doc, 'div', { class: 'vault-page' },
+    statusHero(doc, loading, hero, handlers, 'options'),
+    s.status === 'error'
+      ? about
+      : h(doc, 'div', { class: 'vault-grid' }, devices, sites, about),
     dialog,
   );
 }
-

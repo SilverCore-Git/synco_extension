@@ -38,8 +38,9 @@ export function renderShell(doc: Document, p: ShellProps): HTMLElement {
     'header',
     { class: 'topbar' },
     wordmark(doc),
-    p.surface === 'popup' ? null : h(doc, 'span', { class: 'chip chip-off', text: `v${p.version}` }),
+    p.surface === 'popup' ? null : h(doc, 'span', { class: 'product', text: 'Extension' }),
     h(doc, 'span', { class: 'grow' }),
+    p.surface === 'popup' ? null : h(doc, 'span', { class: 'version', text: `v${p.version}` }),
     p.surface === 'popup' && p.openFull ? iconButton(doc, 'gear-fill', 'Ouvrir tous les réglages', p.openFull) : null,
   );
 
@@ -90,5 +91,8 @@ export function renderShell(doc: Document, p: ShellProps): HTMLElement {
     h(doc, 'div', { class: 'content' }, ...p.banners, current?.content),
   );
 
-  return h(doc, 'div', { class: 'shell' }, topbar, tabs, main);
+  // Page des réglages : la barre et le contenu partagent une même colonne centrée (.frame).
+  return p.surface === 'popup'
+    ? h(doc, 'div', { class: 'shell' }, topbar, tabs, main)
+    : h(doc, 'div', { class: 'shell' }, h(doc, 'div', { class: 'bar' }, h(doc, 'div', { class: 'frame' }, topbar, tabs)), h(doc, 'div', { class: 'frame' }, main));
 }

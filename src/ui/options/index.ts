@@ -1,3 +1,4 @@
+import { api } from '../../shared/api';
 import { createDraftBackend } from '../draftBackend';
 import type { UiHandlers } from '../modules';
 import { runApp } from '../runApp';
@@ -16,6 +17,10 @@ const handlers: UiHandlers = {
   cancelRemove: () => model.cancelRemove(),
   confirmRemove: () => void model.confirmRemove(),
   dismissDraft: () => void drafts.dismiss().then(loadDraft),
+  openSynco: () => {
+    const origin = model.current.hosts.find((x) => x.granted)?.origin;
+    if (origin) void api.tabs.create({ url: `${origin}/` });
+  },
 };
 
 const app = runApp({

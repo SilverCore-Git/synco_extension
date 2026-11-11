@@ -136,6 +136,9 @@ Firefox : un module temporaire est supprimé à la fermeture du navigateur ; R29
 
 ## 7. Actions de page
 
+> **Masquées pour l'instant** (voir [page-actions.md](page-actions.md)) : R44 attend qu'**aucune** entrée « Créer une
+> tâche dans Synco » n'apparaisse ; R45–R50 et R59 sont à rejouer quand la fonction reviendra.
+
 | # | Étape | Résultat attendu | Chrome | Firefox |
 | --- | --- | --- | :-: | :-: |
 | R44 | Sur un site `https://`, sélectionner du texte, clic droit | Entrée « Créer une tâche dans Synco » | | |
@@ -165,8 +168,8 @@ Firefox : un module temporaire est supprimé à la fermeture du navigateur ; R29
 | R58 | Retirer l'accès au site (R06 inverse) | Le popup dit « Autorisation nécessaire » avec un seul bouton « Autoriser » | | |
 | R59 | Créer un brouillon (R44–R46), rouvrir le popup | Deux onglets apparaissent (« Coffre », « Tâches » avec la pastille « 1 ») et « Tâches » est ouvert ; après « Ignorer le brouillon », l'onglet disparaît | | |
 | R59b | « Comment ça marche ? » dans le popup | Trois phrases simples s'affichent ; « Plus de détails » ouvre la page des réglages ; « Masquer » les referme | | |
-| R60 | Roue dentée du popup | Ouvre la page d'options ; colonne latérale avec les mêmes onglets ; l'adresse change (`#vault`, `#tasks`) | | |
-| R61 | Page d'options réduite à moins de 720 px de large | Onglets en barre horizontale au-dessus du contenu, pas de défilement horizontal | | |
+| R60 | Roue dentée du popup | Ouvre la page d'options : barre « Synco. Extension » et version, aucun onglet ; le grand état du popup en large (titre, schéma Synco ↔ clé, « Autoriser » s'il le faut), « Appareils reliés » (compte identique au schéma), « Sites Synco », « À savoir » | | |
+| R61 | Page d'options réduite à moins de 860 px de large | Grand état puis panneaux en une seule colonne, pas de défilement horizontal | | |
 | R62 | Fenêtre de l'extension | De 660 px de haut, tout tient sans défilement : logo, titre, une ligne d'aide, **Autoriser**, Annuler (et, pour un ancien enregistrement, le pavé et la ligne de limite) ; aucun bandeau vide, aucune animation décorative ; ouverte à droite de la carte de Synco si la page fait 880 px ou plus | | |
 | R63 | Navigation au clavier (Tab) dans le popup, la page d'options et la fenêtre de l'extension | Anneau de focus vert visible partout ; la suppression d'une clé ne prend jamais le focus par défaut (« Annuler » d'abord) | | |
 | R64 | Système réglé sur « réduire les animations » | Pas d'animation de chargement ni de transition | | |
