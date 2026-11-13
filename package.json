@@ -1,6 +1,6 @@
 {
   "name": "synco-extension",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Extension Chrome et Firefox pour Synco : coffre de clés local et actions de page.",
   "private": true,
   "license": "UNLICENSED",
