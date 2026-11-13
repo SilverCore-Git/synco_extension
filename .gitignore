@@ -39,3 +39,6 @@ Thumbs.db
 .vscode/
 .claude/
 graphify-out/
+
+# Bun installé par scripts/amo-build.sh
+.bun-amo/

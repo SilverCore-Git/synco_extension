@@ -61,7 +61,7 @@ node scripts/package.mjs     # → dist/*.zip (Chrome, Firefox, source) et dist/
 ```
 
 Procédure complète, reconstruction à l'identique pour les relecteurs de l'AMO et notes pour les stores :
-[doc/build-reproductible.md](doc/build-reproductible.md).
+[doc/build-reproductible.md](doc/build-reproductible.md). Relecteurs AMO : [BUILD.md](BUILD.md) et `bash scripts/amo-build.sh`.
 
 ## Compatibilité
 
